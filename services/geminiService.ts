@@ -1,3 +1,5 @@
+import { GEMINI_API_KEY } from '@env';
+
 interface GeminiMessage {
   role: 'user' | 'model';
   parts: { text: string }[];
@@ -12,12 +14,15 @@ interface GeminiResponse {
 }
 
 class GeminiService {
-  private apiKey: string = '';
+  private apiKey: string = GEMINI_API_KEY || '';
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
-  setApiKey(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor() {
+    if (!this.apiKey) {
+      console.warn('Gemini API key not found. Please set it in your .env file.');
+    }
   }
+
 
   async generateContent(prompt: string, conversationHistory: GeminiMessage[] = []): Promise<string> {
     if (!this.apiKey) {
