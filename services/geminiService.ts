@@ -118,48 +118,58 @@ Please provide a helpful, educational response about this trading-related topic.
     return systemContext;
   }
 
-  async analyzeStock(symbol: string, timeframe: string = '1D'): Promise<any> {
+  async analyzeStock(symbol: string): Promise<any> {
     const prompt = `
-    Provide a comprehensive analysis for ${symbol} stock including:
-    1. Current technical analysis (support, resistance, trend)
-    2. Fundamental analysis summary
-    3. Risk assessment
-    4. Trading recommendation with entry/exit points
-    5. Time horizon for the trade
-    
-    Format your response to include specific metrics and actionable insights.
+    You are an expert financial analyst AI. Your task is to provide a detailed, data-driven analysis of a stock based on its ticker symbol.
+
+    Analyze the stock for the symbol: "${symbol}"
+
+    Respond exclusively with a single, minified JSON object. Do not include any text, pleasantries, or markdown formatting before or after the JSON object.
+
+    The JSON object must follow this exact structure:
+    {
+      "symbol": "TICKER",
+      "recommendation": "BUY" | "SELL" | "HOLD",
+      "confidence": <number between 1 and 100>,
+      "riskLevel": "LOW" | "MEDIUM" | "HIGH",
+      "timeframe": "<string, e.g., '1-3 Months', '6-12 Months'>",
+      "targetPrice": <number>,
+      "stopLoss": <number>,
+      "analysis": "<string, a concise summary of the overall analysis>",
+      "keyFactors": [
+        "<string, a key bullish or bearish factor>",
+        "<string, another key factor>",
+        "<string, a third key factor>"
+      ]
+    }
+
+    Instructions for generating the values:
+    - "recommendation": Base this on a holistic view of technical and fundamental indicators.
+    - "confidence": Quantify your certainty based on market volatility, indicator strength, and earnings certainty.
+    - "riskLevel": Assess the risk based on the stock's volatility, sector risks, and market conditions.
+    - "analysis": Write a brief, professional summary explaining the reasoning behind your recommendation.
+    - "keyFactors": List the three most critical data points influencing your decision.
+
+    If the provided symbol does not appear to be a valid stock ticker, return a JSON object with an "error" key, like this:
+    { "error": "Invalid stock symbol provided." }
     `;
 
-    const response = await this.generateContent(prompt);
+    const responseText = await this.generateContent(prompt);
     
-    // Parse the response and return structured data
-    return {
-      symbol,
-      analysis: response,
-      recommendation: this.extractRecommendation(response),
-      targetPrice: this.extractTargetPrice(response),
-      stopLoss: this.extractStopLoss(response),
-      confidence: Math.floor(Math.random() * 30) + 70, // Simulated confidence score
-      timestamp: new Date().toISOString()
-    };
+    try {
+      const parsedResponse = JSON.parse(responseText);
+      if (parsedResponse.error) {
+        throw new Error(parsedResponse.error);
+      }
+      // The service now returns the full, structured object
+      return parsedResponse;
+    } catch (error) {
+      console.error('Failed to parse Gemini JSON response:', error);
+      throw new Error('The AI response was not in the expected format.');
+    }
   }
 
-  private extractRecommendation(text: string): 'BUY' | 'SELL' | 'HOLD' {
-    const lowerText = text.toLowerCase();
-    if (lowerText.includes('buy') || lowerText.includes('bullish')) return 'BUY';
-    if (lowerText.includes('sell') || lowerText.includes('bearish')) return 'SELL';
-    return 'HOLD';
-  }
-
-  private extractTargetPrice(text: string): number | null {
-    const priceMatch = text.match(/target.*?\$?(\d+\.?\d*)/i);
-    return priceMatch ? parseFloat(priceMatch[1]) : null;
-  }
-
-  private extractStopLoss(text: string): number | null {
-    const stopMatch = text.match(/stop.*?loss.*?\$?(\d+\.?\d*)/i);
-    return stopMatch ? parseFloat(stopMatch[1]) : null;
-  }
+  // The old extraction helper functions are no longer needed and are removed.
 }
 
 export default new GeminiService();

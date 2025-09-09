@@ -54,28 +54,15 @@ export default function ChatScreen() {
     setIsLoading(true);
 
     try {
-      // Call the actual Gemini Service to get stock analysis
+      // Call the Gemini Service which now returns a structured JSON object
       const analysisResult = await geminiService.analyzeStock(trimmedInput);
       
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: analysisResult.analysis, // The main text response from the service
+        text: analysisResult.analysis, // The main summary text
         isUser: false,
         timestamp: new Date(),
-        analysis: { // The structured analysis data from the service
-          recommendation: analysisResult.recommendation,
-          confidence: analysisResult.confidence,
-          targetPrice: analysisResult.targetPrice,
-          stopLoss: analysisResult.stopLoss,
-          // Add placeholder data for fields not returned by the service
-          timeframe: 'N/A', 
-          riskLevel: 'N/A',
-          keyFactors: [
-            'Analysis based on public data.',
-            'Always conduct your own research.',
-            'Past performance is not indicative of future results.'
-          ]
-        },
+        analysis: analysisResult, // Pass the entire structured object to the analysis view
       };
       
       setMessages(prev => [...prev, aiResponse]);
@@ -145,7 +132,7 @@ export default function ChatScreen() {
             <View style={styles.analysisIconContainer}>
               <BarChart3 size={20} color="#60A5FA" />
             </View>
-            <Text style={styles.analysisTitle}>AI Analysis</Text>
+            <Text style={styles.analysisTitle}>AI Analysis: {analysis.symbol}</Text>
           </View>
 
           <View style={styles.analysisGrid}>
@@ -158,6 +145,10 @@ export default function ChatScreen() {
               <Text style={styles.analysisValue}>{analysis.confidence || 'N/A'}%</Text>
             </BlurView>
             <BlurView intensity={20} tint="light" style={styles.analysisItem}>
+              <Text style={styles.analysisLabel}>Risk Level</Text>
+              <Text style={styles.analysisValue}>{analysis.riskLevel || 'N/A'}</Text>
+            </BlurView>
+            <BlurView intensity={20} tint="light" style={styles.analysisItem}>
               <Text style={styles.analysisLabel}>Target Price</Text>
               <Text style={styles.analysisValue}>${analysis.targetPrice || 'N/A'}</Text>
             </BlurView>
@@ -165,11 +156,15 @@ export default function ChatScreen() {
               <Text style={styles.analysisLabel}>Stop Loss</Text>
               <Text style={styles.analysisValue}>${analysis.stopLoss || 'N/A'}</Text>
             </BlurView>
+            <BlurView intensity={20} tint="light" style={styles.analysisItem}>
+              <Text style={styles.analysisLabel}>Timeframe</Text>
+              <Text style={styles.analysisValue}>{analysis.timeframe || 'N/A'}</Text>
+            </BlurView>
           </View>
 
           <BlurView intensity={25} tint="dark" style={styles.keyFactors}>
             <Text style={styles.keyFactorsTitle}>Key Factors</Text>
-            {analysis.keyFactors.map((factor: string, index: number) => (
+            {analysis.keyFactors && analysis.keyFactors.map((factor: string, index: number) => (
               <Text key={index} style={styles.keyFactor}>• {factor}</Text>
             ))}
           </BlurView>
@@ -446,16 +441,17 @@ const styles = StyleSheet.create({
   analysisGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     marginBottom: 24,
-    gap: 12,
   },
   analysisItem: {
-    width: '48%',
+    width: '32%', // Adjusted for 3 items per row
     padding: 16,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 12, // Added margin for spacing
   },
   analysisLabel: {
     fontSize: 12,
