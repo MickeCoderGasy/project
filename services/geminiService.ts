@@ -15,7 +15,7 @@ interface GeminiResponse {
 
 class GeminiService {
   private apiKey: string = GEMINI_API_KEY || '';
-  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
 
   constructor() {
     if (!this.apiKey) {
@@ -49,7 +49,7 @@ class GeminiService {
             temperature: 0.7,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 50000,
           },
           safetySettings: [
             {
@@ -81,6 +81,11 @@ class GeminiService {
       if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
         return data.candidates[0].content.parts[0].text;
       } else {
+        // Check for safety-related blocks
+        if (data.promptFeedback) {
+          console.error('Prompt was blocked due to safety settings:', data.promptFeedback);
+          throw new Error(`Request blocked. Reason: ${data.promptFeedback.blockReason}`);
+        }
         throw new Error('Invalid response format from Gemini API');
       }
     } catch (error) {

@@ -8,13 +8,13 @@ import {
   TouchableOpacity, 
   KeyboardAvoidingView, 
   Platform,
-  Alert,
-  Dimensions
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, ToggleLeft, ToggleRight, Bot, User, ChartBar as BarChart3 } from 'lucide-react-native';
+import geminiService from '../../services/geminiService';
 
 interface Message {
   id: string;
@@ -28,7 +28,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your AI trading assistant. Ask me about market analysis, stock recommendations, or trading strategies.',
+      text: 'Hello! I\'m your AI trading assistant. Ask me about a stock symbol (e.g., "AAPL", "TSLA") to get an analysis.',
       isUser: false,
       timestamp: new Date(),
     }
@@ -39,11 +39,12 @@ export default function ChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   const sendMessage = async () => {
-    if (!inputText.trim()) return;
+    const trimmedInput = inputText.trim();
+    if (!trimmedInput) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: trimmedInput,
       isUser: true,
       timestamp: new Date(),
     };
@@ -53,56 +54,45 @@ export default function ChatScreen() {
     setIsLoading(true);
 
     try {
-      // Simulate AI response (replace with actual Gemini API call)
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          text: generateAIResponse(userMessage.text),
-          isUser: false,
-          timestamp: new Date(),
-          analysis: generateAnalysisData(userMessage.text),
-        };
-        
-        setMessages(prev => [...prev, aiResponse]);
-        setIsLoading(false);
-      }, 1500);
+      // Call the actual Gemini Service to get stock analysis
+      const analysisResult = await geminiService.analyzeStock(trimmedInput);
+      
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: analysisResult.analysis, // The main text response from the service
+        isUser: false,
+        timestamp: new Date(),
+        analysis: { // The structured analysis data from the service
+          recommendation: analysisResult.recommendation,
+          confidence: analysisResult.confidence,
+          targetPrice: analysisResult.targetPrice,
+          stopLoss: analysisResult.stopLoss,
+          // Add placeholder data for fields not returned by the service
+          timeframe: 'N/A', 
+          riskLevel: 'N/A',
+          keyFactors: [
+            'Analysis based on public data.',
+            'Always conduct your own research.',
+            'Past performance is not indicative of future results.'
+          ]
+        },
+      };
+      
+      setMessages(prev => [...prev, aiResponse]);
+
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Sorry, I couldn't process your request. Please ensure you entered a valid stock symbol and try again.",
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      Alert.alert('Error', 'Failed to get AI response. Please try again.');
+    } finally {
       setIsLoading(false);
     }
-  };
-
-  const generateAIResponse = (userMessage: string): string => {
-    // Simulate AI responses based on keywords (replace with actual Gemini API)
-    const lowerMessage = userMessage.toLowerCase();
-    
-    if (lowerMessage.includes('apple') || lowerMessage.includes('aapl')) {
-      return 'Apple (AAPL) is showing strong fundamentals with robust iPhone sales and services growth. Current price action suggests a potential breakout above $180 resistance. Consider a position with a stop loss at $165.';
-    } else if (lowerMessage.includes('market') || lowerMessage.includes('analysis')) {
-      return 'Current market conditions show mixed signals. The S&P 500 is testing key support levels while tech stocks demonstrate relative strength. I recommend a cautious approach with defensive positions in utilities and consumer staples.';
-    } else if (lowerMessage.includes('portfolio') || lowerMessage.includes('diversification')) {
-      return 'For optimal portfolio diversification, consider allocating 60% to equities, 30% to bonds, and 10% to alternatives. Within equities, maintain exposure across sectors with emphasis on technology and healthcare for growth potential.';
-    } else {
-      return 'Based on current market conditions and your query, I recommend taking a balanced approach. Monitor key technical indicators and maintain proper risk management. Would you like me to analyze any specific stocks or sectors?';
-    }
-  };
-
-  const generateAnalysisData = (userMessage: string) => {
-    return {
-      recommendation: 'BUY',
-      confidence: 85,
-      targetPrice: 195.00,
-      stopLoss: 165.00,
-      timeframe: '3-6 months',
-      riskLevel: 'Medium',
-      keyFactors: [
-        'Strong earnings growth',
-        'Positive sector momentum',
-        'Technical breakout pattern',
-        'Institutional accumulation'
-      ]
-    };
   };
 
   const renderMessage = (message: Message) => (
@@ -161,19 +151,19 @@ export default function ChatScreen() {
           <View style={styles.analysisGrid}>
             <BlurView intensity={20} tint="light" style={styles.analysisItem}>
               <Text style={styles.analysisLabel}>Recommendation</Text>
-              <Text style={[styles.analysisValue, { color: '#10B981' }]}>{analysis.recommendation}</Text>
+              <Text style={[styles.analysisValue, { color: '#10B981' }]}>{analysis.recommendation || 'N/A'}</Text>
             </BlurView>
             <BlurView intensity={20} tint="light" style={styles.analysisItem}>
               <Text style={styles.analysisLabel}>Confidence</Text>
-              <Text style={styles.analysisValue}>{analysis.confidence}%</Text>
+              <Text style={styles.analysisValue}>{analysis.confidence || 'N/A'}%</Text>
             </BlurView>
             <BlurView intensity={20} tint="light" style={styles.analysisItem}>
               <Text style={styles.analysisLabel}>Target Price</Text>
-              <Text style={styles.analysisValue}>${analysis.targetPrice}</Text>
+              <Text style={styles.analysisValue}>${analysis.targetPrice || 'N/A'}</Text>
             </BlurView>
             <BlurView intensity={20} tint="light" style={styles.analysisItem}>
               <Text style={styles.analysisLabel}>Stop Loss</Text>
-              <Text style={styles.analysisValue}>${analysis.stopLoss}</Text>
+              <Text style={styles.analysisValue}>${analysis.stopLoss || 'N/A'}</Text>
             </BlurView>
           </View>
 
@@ -232,15 +222,24 @@ export default function ChatScreen() {
             >
               {messages.map(renderMessage)}
               {isLoading && (
-                <View style={[styles.messageContainer, styles.aiMessage]}>
-                  <View style={styles.messageHeader}>
-                    <View style={styles.messageIcon}>
-                      <Bot size={16} color="#22C55E" />
+                <BlurView 
+                  intensity={20} 
+                  tint="dark" 
+                  style={[styles.messageContainer, styles.aiMessage]}
+                >
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
+                    style={styles.messageGradient}
+                  >
+                    <View style={styles.messageHeader}>
+                      <View style={styles.messageIcon}>
+                        <Bot size={16} color="#22C55E" />
+                      </View>
+                      <Text style={styles.messageTime}>Typing...</Text>
                     </View>
-                    <Text style={styles.messageTime}>Typing...</Text>
-                  </View>
-                  <Text style={styles.loadingText}>AI is analyzing your request...</Text>
-                </View>
+                    <Text style={styles.loadingText}>AI is analyzing your request...</Text>
+                  </LinearGradient>
+                </BlurView>
               )}
             </ScrollView>
           ) : (
@@ -260,7 +259,7 @@ export default function ChatScreen() {
                 style={styles.textInput}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Ask about stocks, market analysis, or trading strategies..."
+                placeholder="Ask about a stock symbol (e.g., AAPL)..."
                 placeholderTextColor="rgba(255, 255, 255, 0.5)"
                 multiline
                 maxLength={500}
