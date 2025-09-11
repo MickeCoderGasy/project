@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Chrome as Home, MessageCircle, User } from 'lucide-react-native';
+import { Chrome as Home, MessageCircle, User, BarChart3 } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -40,6 +40,15 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="analyse"
+        options={{
+          title: 'Analyse',
+          tabBarIcon: ({ size, color }) => (
+            <BarChart3 size={size} color={color} />
           ),
         }}
       />

@@ -170,6 +170,73 @@ Please provide a helpful, educational response about this trading-related topic.
   }
 
   // The old extraction helper functions are no longer needed and are removed.
+
+  async getAnalysis(config: any): Promise<any> {
+    const prompt = this.buildAnalysisPrompt(config);
+    const responseText = await this.generateContent(prompt);
+    try {
+      // For now, we expect a JSON response. We can make this more robust later.
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error('Failed to parse Gemini JSON response for analysis:', error);
+      // If parsing fails, return the raw text for debugging
+      return { rawResponse: responseText };
+    }
+  }
+
+  private buildAnalysisPrompt(config: any): string {
+    let prompt = `
+You are an expert financial analyst AI. Your task is to provide a detailed, data-driven trading analysis based on a user's specific configuration.
+
+Analyze the asset: "${config.pair}" on the timeframe: "${config.timeframe}"
+
+Respond exclusively with a single, minified JSON object. Do not include any text, pleasantries, or markdown formatting before or after the JSON object.
+
+The JSON object must follow this exact structure:
+{
+  "asset": "${config.pair}",
+  "timeframe": "${config.timeframe}",
+  "recommendation": "BUY" | "SELL" | "HOLD" | "NO_CLEAR_OPPORTUNITY",
+  "strategy": "<string, e.g., 'Trend Following', 'Breakout Confirmation', 'Range Reversal'>",
+  "confidence": <number between 1 and 100>,
+  "riskLevel": "LOW" | "MEDIUM" | "HIGH",
+  "entryPoints": [
+    { "price": <number>, "type": "PRIMARY" | "SECONDARY" }
+  ],
+  "targetPrice": <number>,
+  "stopLoss": <number>,
+  "summary": "<string, a concise summary of the overall analysis and the reasoning behind the recommendation>",
+  "keyIndicators": [
+    "<string, a key indicator supporting the analysis, e.g., 'RSI showing divergence'>",
+    "<string, another key indicator, e.g., 'Price above 50-day MA'>",
+    "<string, a third key indicator>"
+  ]
+}
+
+Now, generate the analysis based on the following user-defined constraints. You MUST adhere to these constraints:
+`;
+
+    if (config.useConfidence) {
+      prompt += `\n- The user's required confidence level is at least ${config.confidence}%. Only provide a BUY or SELL recommendation if your own confidence meets or exceeds this level. Otherwise, recommend "HOLD" or "NO_CLEAR_OPPORTUNITY".`;
+    }
+    if (config.useEntryType) {
+      prompt += config.isMultipleEntries
+        ? `\n- The user is open to multiple entry points. Provide up to two entry points in the "entryPoints" array if applicable.`
+        : `\n- The user wants only a single, primary entry point. The "entryPoints" array should contain exactly one object.`;
+    }
+    if (config.useIndicators && config.indicators?.length > 0) {
+      prompt += `\n- The analysis MUST focus on the following technical indicators: ${config.indicators.join(', ')}. The "keyIndicators" in your response should be derived from this list.`;
+    }
+    if (config.useRiskReward) {
+      prompt += `\n- The trade setup MUST respect a minimum risk/reward ratio of ${config.riskReward}. Calculate the distance from entry to stop-loss and from entry to target-price to ensure this ratio is met.`;
+    }
+    if (config.useTradingStyle) {
+      prompt += `\n- The user is specifically looking for a "${config.tradingStyle}" style of trade. Your analysis and "strategy" should reflect this approach.`;
+    }
+
+    prompt += `\n\nGenerate the JSON response now.`
+    return prompt;
+  }
 }
 
 export default new GeminiService();
