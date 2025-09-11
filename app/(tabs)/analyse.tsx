@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { WEBHOOK_URL } from '@env';
 import AnalysisResultCard from '../../components/AnalysisResultCard'; // Import the new component
-import geminiService from '@/services/geminiService';
+// import geminiService from '@/services/geminiService'; // Remove this import
 import { ScrollView, Switch, TextInput, TouchableOpacity, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Slider from '@react-native-community/slider';
 
@@ -61,15 +62,35 @@ export default function AnalyseScreen() {
     setAnalysisResult(null);
     setError(null);
 
+    const webhookUrl = WEBHOOK_URL;
+
     try {
-      const result = await geminiService.getAnalysis(analysisConfig);
-      if (result.rawResponse) {
-        setError(`L'IA a retourné une réponse inattendue. Détails : ${result.rawResponse}`);
-      } else {
-        setAnalysisResult(result);
+      // Use fetch API to send a POST request to the webhook
+      const response = await fetch(webhookUrl, {
+
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisConfig),
+      });
+
+      if (!response.ok) {
+        // If the HTTP response is not ok (e.g., 404, 500), throw an error
+        const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
+        throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorData.message || response.statusText}`);
       }
+
+      // Parse the JSON response
+      const result = await response.json();
+      
+      // Assuming the webhook directly returns the analysis result
+      // If the webhook returns a specific error structure (like geminiService did with rawResponse),
+      // you might need to adapt this logic.
+      setAnalysisResult(result);
+
     } catch (e: any) {
-      setError(e.message || 'An unknown error occurred.');
+      setError(e.message || 'An unknown error occurred during analysis.');
     } finally {
       setIsLoading(false);
     }

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { WEBHOOK_URL } from '@env';
 import { 
   View, 
   Text, 
@@ -14,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, ToggleLeft, ToggleRight, Bot, User, ChartBar as BarChart3 } from 'lucide-react-native';
-import geminiService from '../../services/geminiService';
+// import geminiService from '../../services/geminiService'; // Supprimez cette importation
 
 interface Message {
   id: string;
@@ -53,34 +54,61 @@ export default function ChatScreen() {
     setInputText('');
     setIsLoading(true);
 
+    // --- MODIFICATION ICI : Appel direct au webhook n8n ---
+    // Remplacez 'your-chat-webhook-id' par l'ID de votre webhook n8n dédié pour le chat
+    const webhookUrl = WEBHOOK_URL; 
+
     try {
-      // Call the Gemini Service which now returns a structured JSON object
-      const analysisResult = await geminiService.analyzeStock(trimmedInput);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Envoyez le symbole boursier dans un objet JSON
+        body: JSON.stringify({ symbol: trimmedInput }), 
+      });
+
+      if (!response.ok) {
+        // Si la réponse HTTP n'est pas OK (e.g., 404, 500), lancez une erreur
+        const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
+        throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorData.message || response.statusText}`);
+      }
+
+      // Parsez la réponse JSON du webhook
+      const analysisResult = await response.json();
       
+      // Vérifiez que la structure de la réponse du webhook correspond à ce que le composant attend
+      // Votre workflow n8n doit renvoyer un objet avec au moins une propriété 'analysis' (pour le texte)
+      // et potentiellement d'autres propriétés comme 'symbol', 'recommendation', etc.
+      if (!analysisResult || typeof analysisResult.analysis !== 'string') {
+        throw new Error('Invalid analysis result format received from webhook. Expected an object with an "analysis" string property.');
+      }
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: analysisResult.analysis, // The main summary text
+        text: analysisResult.analysis, // Le texte récapitulatif principal de l'analyse
         isUser: false,
         timestamp: new Date(),
-        analysis: analysisResult, // Pass the entire structured object to the analysis view
+        analysis: analysisResult, // Passez l'objet structuré complet à la vue d'analyse
       };
       
       setMessages(prev => [...prev, aiResponse]);
 
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (error: any) {
+      console.error('Error sending message to webhook:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Sorry, I couldn't process your request. Please ensure you entered a valid stock symbol and try again.",
+        text: `Sorry, I couldn't process your request. Error: ${error.message}. Please ensure you entered a valid stock symbol and try again.`,
         isUser: false,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
-      Alert.alert('Error', 'Failed to get AI response. Please try again.');
+      Alert.alert('Error', `Failed to get AI response: ${error.message}. Please try again.`);
     } finally {
       setIsLoading(false);
     }
   };
+  // --- FIN DE LA MODIFICATION ---
 
   const renderMessage = (message: Message) => (
     <BlurView 
