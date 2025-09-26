@@ -1,27 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Tabs } from 'expo-router';
-import { router } from 'expo-router';
 import { Chrome as Home, MessageCircle, User, BarChart3 } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
-  const { session, loading } = useAuth();
   const { colors, effectiveTheme } = useTheme();
-
-  useEffect(() => {
-    if (!loading && !session) {
-      router.replace('/auth');
-    }
-  }, [session, loading]);
-
-  if (loading) {
-    return null;
-  }
-
-  if (!session) {
-    return null;
-  }
 
   return (
     <Tabs
