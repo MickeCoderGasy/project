@@ -1,4 +1,4 @@
-import { GEMINI_API_KEY } from '@env';
+//import { GEMINI_API_KEY } from '@env';
 
 interface GeminiMessage {
   role: 'user' | 'model';
