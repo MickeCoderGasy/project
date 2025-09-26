@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrendingUp, TrendingDown, DollarSign, ChartBar as BarChart3, Eye, Activity } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function HomeScreen() {
+  const { colors, effectiveTheme } = useTheme();
   const portfolioValue = 125420.50;
   const dailyChange = 2340.25;
   const dailyChangePercent = 1.87;
@@ -38,15 +40,15 @@ export default function HomeScreen() {
   const renderStockItem = (stock: any) => (
     <View key={stock.symbol} style={styles.stockItem}>
       <View style={styles.stockInfo}>
-        <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-        <Text style={styles.stockPrice}>${stock.price}</Text>
+        <Text style={[styles.stockSymbol, { color: colors.text }]}>{stock.symbol}</Text>
+        <Text style={[styles.stockPrice, { color: colors.textSecondary }]}>${stock.price}</Text>
       </View>
       <View style={styles.stockChange}>
-        <View style={[styles.changeContainer, stock.change >= 0 ? styles.positive : styles.negative]}>
+        <View style={[styles.changeContainer, stock.change >= 0 ? styles.positive : styles.negative, { borderColor: colors.border }]}>
           {stock.change >= 0 ? (
-            <TrendingUp size={14} color="#22C55E" />
+            <TrendingUp size={14} color={colors.success} />
           ) : (
-            <TrendingDown size={14} color="#EF4444" />
+            <TrendingDown size={14} color={colors.error} />
           )}
           <Text style={[styles.changeText, stock.change >= 0 ? styles.positiveText : styles.negativeText]}>
             ${Math.abs(stock.change).toFixed(2)} ({Math.abs(stock.changePercent).toFixed(2)}%)
@@ -57,80 +59,84 @@ export default function HomeScreen() {
   );
 
   const renderInsightItem = (insight: any, index: number) => (
-    <TouchableOpacity key={index} style={styles.insightItem}>
+    <TouchableOpacity key={index} style={[styles.insightItem, { borderColor: colors.border }]}>
       <View style={styles.insightHeader}>
         <View style={[styles.insightIcon, 
-          insight.type === 'bullish' ? styles.bullishIcon : 
-          insight.type === 'warning' ? styles.warningIcon : styles.neutralIcon
+          insight.type === 'bullish' ? { backgroundColor: `${colors.success}30` } : 
+          insight.type === 'warning' ? { backgroundColor: `${colors.warning}30` } : { backgroundColor: `${colors.primary}30` }
         ]}>
-          {insight.type === 'bullish' ? <TrendingUp size={16} color="#22C55E" /> :
-           insight.type === 'warning' ? <Activity size={16} color="#F59E0B" /> :
-           <BarChart3 size={16} color="#3B82F6" />}
+          {insight.type === 'bullish' ? <TrendingUp size={16} color={colors.success} /> :
+           insight.type === 'warning' ? <Activity size={16} color={colors.warning} /> :
+           <BarChart3 size={16} color={colors.primary} />}
         </View>
-        <Text style={styles.insightTitle}>{insight.title}</Text>
+        <Text style={[styles.insightTitle, { color: colors.text }]}>{insight.title}</Text>
       </View>
-      <Text style={styles.insightDescription}>{insight.description}</Text>
+      <Text style={[styles.insightDescription, { color: colors.textSecondary }]}>{insight.description}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
+        colors={
+          effectiveTheme === 'light'
+            ? [colors.background, colors.surface, colors.surfaceSecondary]
+            : ['#0F172A', '#1E293B', '#334155']
+        }
         style={styles.backgroundGradient}
       />
       <SafeAreaView style={styles.safeArea}>
         <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-          <BlurView intensity={20} tint="dark" style={styles.header}>
-            <Text style={styles.greeting}>Good morning, Trader</Text>
+          <BlurView intensity={effectiveTheme === 'light' ? 80 : 20} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
+            <Text style={[styles.greeting, { color: colors.text }]}>Good morning, Trader</Text>
             <TouchableOpacity style={styles.watchlistButton}>
-              <BlurView intensity={40} tint="light" style={styles.glassButton}>
-                <Eye size={20} color="#60A5FA" />
+              <BlurView intensity={40} tint={effectiveTheme} style={[styles.glassButton, { borderColor: colors.border }]}>
+                <Eye size={20} color={colors.primary} />
               </BlurView>
             </TouchableOpacity>
           </BlurView>
 
         {/* Portfolio Summary */}
-          <BlurView intensity={30} tint="dark" style={styles.portfolioCard}>
+          <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.portfolioCard, { borderColor: colors.border }]}>
             <LinearGradient
-              colors={['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.05)']}
+              colors={[`${colors.primary}20`, `${colors.primary}10`]}
               style={styles.portfolioGradient}
             >
               <View style={styles.portfolioHeader}>
-                <View style={styles.iconContainer}>
-                  <DollarSign size={24} color="#60A5FA" />
+                <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}30` }]}>
+                  <DollarSign size={24} color={colors.primary} />
                 </View>
-                <Text style={styles.portfolioTitle}>Portfolio Value</Text>
+                <Text style={[styles.portfolioTitle, { color: colors.textSecondary }]}>Portfolio Value</Text>
               </View>
-              <Text style={styles.portfolioValue}>${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+              <Text style={[styles.portfolioValue, { color: colors.text }]}>${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
               <View style={styles.portfolioChange}>
-                <BlurView intensity={40} tint="light" style={[styles.changeContainer, dailyChange >= 0 ? styles.positive : styles.negative]}>
+                <BlurView intensity={40} tint={effectiveTheme} style={[styles.changeContainer, dailyChange >= 0 ? styles.positive : styles.negative, { borderColor: colors.border }]}>
                   {dailyChange >= 0 ? (
-                    <TrendingUp size={16} color="#10B981" />
+                    <TrendingUp size={16} color={colors.success} />
                   ) : (
-                    <TrendingDown size={16} color="#F87171" />
+                    <TrendingDown size={16} color={colors.error} />
                   )}
                   <Text style={[styles.changeText, dailyChange >= 0 ? styles.positiveText : styles.negativeText]}>
                     +${dailyChange.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({dailyChangePercent}%)
                   </Text>
                 </BlurView>
-                <Text style={styles.changeLabel}>Today</Text>
+                <Text style={[styles.changeLabel, { color: colors.textMuted }]}>Today</Text>
               </View>
             </LinearGradient>
           </BlurView>
 
           {/* Market Overview */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Market Overview</Text>
-            <BlurView intensity={25} tint="dark" style={styles.marketCard}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Market Overview</Text>
+            <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.marketCard, { borderColor: colors.border }]}>
               {marketData.map(renderStockItem)}
             </BlurView>
             </View>
 
           {/* AI Insights */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI Insights</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>AI Insights</Text>
             {aiInsights.map(renderInsightItem)}
           </View>
         </ScrollView>
@@ -165,12 +171,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   greeting: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -183,7 +187,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   portfolioCard: {
     marginHorizontal: 20,
@@ -191,7 +194,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -206,7 +208,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(96, 165, 250, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -219,12 +220,10 @@ const styles = StyleSheet.create({
   portfolioTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
   },
   portfolioValue: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#FFFFFF',
     marginBottom: 12,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -243,13 +242,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   positive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
   },
   negative: {
-    backgroundColor: 'rgba(248, 113, 113, 0.2)',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
   changeText: {
     fontSize: 14,
@@ -257,14 +255,13 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   positiveText: {
-    color: '#10B981',
+    color: '#22C55E',
   },
   negativeText: {
-    color: '#F87171',
+    color: '#EF4444',
   },
   changeLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
   },
   section: {
     paddingHorizontal: 20,
@@ -273,7 +270,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 16,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -284,7 +280,6 @@ const styles = StyleSheet.create({
     padding: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -297,7 +292,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(148, 163, 184, 0.2)',
   },
   stockInfo: {
     flex: 1,
@@ -305,12 +300,10 @@ const styles = StyleSheet.create({
   stockSymbol: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 2,
   },
   stockPrice: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
   },
   stockChange: {
     alignItems: 'flex-end',
@@ -321,7 +314,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -341,23 +333,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  bullishIcon: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  warningIcon: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-  },
-  neutralIcon: {
-    backgroundColor: 'rgba(96, 165, 250, 0.2)',
-  },
   insightTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   insightDescription: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
     lineHeight: 20,
   },
 });

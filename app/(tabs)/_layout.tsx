@@ -1,15 +1,36 @@
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
+import { router } from 'expo-router';
 import { Chrome as Home, MessageCircle, User, BarChart3 } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
+  const { session, loading } = useAuth();
+  const { colors, effectiveTheme } = useTheme();
+
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace('/auth');
+    }
+  }, [session, loading]);
+
+  if (loading) {
+    return null;
+  }
+
+  if (!session) {
+    return null;
+  }
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: 'rgba(15, 23, 42, 0.8)',
-          borderTopColor: 'rgba(255, 255, 255, 0.1)',
+          backgroundColor: colors.tabBarBackground,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           paddingBottom: 8,
           paddingTop: 8,
@@ -23,12 +44,12 @@ export default function TabLayout() {
           shadowRadius: 20,
           elevation: 10,
         },
-        tabBarActiveTintColor: '#60A5FA',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
-          textShadowColor: 'rgba(0, 0, 0, 0.3)',
+          textShadowColor: effectiveTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)',
           textShadowOffset: { width: 0, height: 1 },
           textShadowRadius: 2,
         },

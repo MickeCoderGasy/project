@@ -4,15 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Settings, Bell, Shield, CreditCard, CircleHelp as HelpCircle, LogOut, ChevronRight, Moon, Globe, Smartphone } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ProfileScreen() {
+  const { user, signOut } = useAuth();
+  const { colors, effectiveTheme, theme, setTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
 
   const userInfo = {
-    name: 'John Trader',
-    email: 'john.trader@email.com',
+    name: user?.user_metadata?.full_name || 'Trader',
+    email: user?.email || 'trader@email.com',
     accountType: 'Premium',
     memberSince: 'Jan 2024'
   };
@@ -51,9 +54,7 @@ export default function ProfileScreen() {
         { 
           icon: Moon, 
           label: 'Dark Mode', 
-          hasSwitch: true,
-          switchValue: darkMode,
-          onSwitchChange: setDarkMode
+          hasThemeSelector: true,
         },
         { 
           icon: Smartphone, 
@@ -95,40 +96,54 @@ export default function ProfileScreen() {
         { 
           text: 'Logout', 
           style: 'destructive',
-          onPress: () => Alert.alert('Logged Out', 'You have been logged out successfully')
+          onPress: signOut
         }
       ]
     );
   };
 
+  const handleThemeChange = () => {
+    const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
+    const currentIndex = themes.indexOf(theme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    setTheme(themes[nextIndex]);
+  };
+
   const renderMenuItem = (item: any, index: number) => (
     <BlurView
       key={index} 
-      intensity={15}
-      tint="light"
-      style={styles.menuItem}
+      intensity={effectiveTheme === 'light' ? 60 : 15}
+      tint={effectiveTheme}
+      style={[styles.menuItem, { borderColor: colors.border }]}
     >
       <TouchableOpacity 
         style={styles.menuItemContent}
-        onPress={item.onPress}
-        disabled={item.hasSwitch}
+        onPress={item.hasThemeSelector ? handleThemeChange : item.onPress}
+        disabled={item.hasSwitch && !item.hasThemeSelector}
       >
         <View style={styles.menuItemLeft}>
-          <View style={styles.menuIcon}>
-            <item.icon size={20} color="#60A5FA" />
+          <View style={[styles.menuIcon, { backgroundColor: `${colors.primary}30` }]}>
+            <item.icon size={20} color={colors.primary} />
           </View>
-          <Text style={styles.menuLabel}>{item.label}</Text>
+          <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
         </View>
         <View style={styles.menuItemRight}>
-          {item.hasSwitch ? (
+          {item.hasThemeSelector ? (
+            <View style={styles.themeSelector}>
+              <Text style={[styles.themeText, { color: colors.textSecondary }]}>
+                {theme === 'system' ? 'Auto' : theme === 'light' ? 'Light' : 'Dark'}
+              </Text>
+              <ChevronRight size={16} color={colors.textMuted} />
+            </View>
+          ) : item.hasSwitch ? (
             <Switch
               value={item.switchValue}
               onValueChange={item.onSwitchChange}
-              trackColor={{ false: 'rgba(255, 255, 255, 0.2)', true: '#60A5FA' }}
-              thumbColor={item.switchValue ? '#FFFFFF' : 'rgba(255, 255, 255, 0.8)'}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={item.switchValue ? '#FFFFFF' : colors.textMuted}
             />
           ) : (
-            <ChevronRight size={20} color="rgba(255, 255, 255, 0.6)" />
+            <ChevronRight size={20} color={colors.textMuted} />
           )}
         </View>
       </TouchableOpacity>
@@ -136,88 +151,92 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
+        colors={
+          effectiveTheme === 'light'
+            ? [colors.background, colors.surface, colors.surfaceSecondary]
+            : ['#0F172A', '#1E293B', '#334155']
+        }
         style={styles.backgroundGradient}
       />
       <SafeAreaView style={styles.safeArea}>
         <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-          <BlurView intensity={20} tint="dark" style={styles.header}>
-            <Text style={styles.headerTitle}>Profile</Text>
+          <BlurView intensity={effectiveTheme === 'light' ? 80 : 20} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
           </BlurView>
 
         {/* User Info Card */}
-          <BlurView intensity={30} tint="dark" style={styles.userCard}>
+          <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.userCard, { borderColor: colors.border }]}>
             <LinearGradient
-              colors={['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.05)']}
+              colors={[`${colors.primary}20`, `${colors.primary}10`]}
               style={styles.userCardGradient}
             >
               <View style={styles.avatar}>
                 <LinearGradient
-                  colors={['#60A5FA', '#3B82F6']}
+                  colors={[colors.primaryLight, colors.primary]}
                   style={styles.avatarGradient}
                 >
                   <User size={32} color="#FFFFFF" />
                 </LinearGradient>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.userName}>{userInfo.name}</Text>
-                <Text style={styles.userEmail}>{userInfo.email}</Text>
+                <Text style={[styles.userName, { color: colors.text }]}>{userInfo.name}</Text>
+                <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{userInfo.email}</Text>
                 <View style={styles.accountBadge}>
-                  <BlurView intensity={20} tint="light" style={styles.accountTypeContainer}>
-                    <Text style={styles.accountType}>{userInfo.accountType} Member</Text>
+                  <BlurView intensity={20} tint={effectiveTheme} style={[styles.accountTypeContainer, { borderColor: `${colors.primary}50` }]}>
+                    <Text style={[styles.accountType, { color: colors.primary }]}>{userInfo.accountType} Member</Text>
                   </BlurView>
-                  <Text style={styles.memberSince}>Since {userInfo.memberSince}</Text>
+                  <Text style={[styles.memberSince, { color: colors.textMuted }]}>Since {userInfo.memberSince}</Text>
                 </View>
               </View>
             </LinearGradient>
           </BlurView>
 
           {/* Trading Stats */}
-          <BlurView intensity={25} tint="dark" style={styles.statsContainer}>
+          <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.statsContainer, { borderColor: colors.border }]}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>$125,420</Text>
-              <Text style={styles.statLabel}>Portfolio Value</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>$125,420</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Portfolio Value</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>+15.7%</Text>
-              <Text style={styles.statLabel}>Total Return</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>+15.7%</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Return</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>247</Text>
-              <Text style={styles.statLabel}>Total Trades</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>247</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Trades</Text>
             </View>
           </BlurView>
 
         {/* Menu Sections */}
           {menuSections.map((section, sectionIndex) => (
             <View key={sectionIndex} style={styles.menuSection}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              <BlurView intensity={20} tint="dark" style={styles.menuCard}>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
+              <BlurView intensity={effectiveTheme === 'light' ? 60 : 20} tint={effectiveTheme} style={[styles.menuCard, { borderColor: colors.border }]}>
                 {section.items.map(renderMenuItem)}
               </BlurView>
             </View>
           ))}
 
         {/* Logout Button */}
-          <BlurView intensity={25} tint="dark" style={styles.logoutButton}>
+          <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.logoutButton, { borderColor: `${colors.error}50` }]}>
             <TouchableOpacity style={styles.logoutButtonContent} onPress={handleLogout}>
               <LinearGradient
-                colors={['rgba(248, 113, 113, 0.2)', 'rgba(239, 68, 68, 0.1)']}
+                colors={[`${colors.error}30`, `${colors.error}10`]}
                 style={styles.logoutGradient}
               >
-                <LogOut size={20} color="#F87171" />
-                <Text style={styles.logoutText}>Logout</Text>
+                <LogOut size={20} color={colors.error} />
+                <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
               </LinearGradient>
             </TouchableOpacity>
           </BlurView>
 
           <View style={styles.footer}>
-            <Text style={styles.versionText}>AI Trading Assistant v1.0.0</Text>
+            <Text style={[styles.versionText, { color: colors.textMuted }]}>AI Trading Assistant v1.0.0</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -248,12 +267,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -264,7 +281,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -295,7 +311,6 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -303,7 +318,6 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 8,
   },
   accountBadge: {
@@ -317,16 +331,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
   },
   accountType: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#60A5FA',
   },
   memberSince: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -336,7 +347,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -350,17 +360,14 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     marginHorizontal: 16,
   },
   menuSection: {
@@ -370,7 +377,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -379,7 +385,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -388,7 +393,6 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     overflow: 'hidden',
   },
   menuItemContent: {
@@ -406,7 +410,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(96, 165, 250, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -414,10 +417,19 @@ const styles = StyleSheet.create({
   menuLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#FFFFFF',
   },
   menuItemRight: {
     marginLeft: 12,
+  },
+  themeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  themeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 8,
+    textTransform: 'capitalize',
   },
   logoutButton: {
     marginHorizontal: 20,
@@ -425,7 +437,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.3)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -444,7 +455,6 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#F87171',
     marginLeft: 8,
   },
   footer: {
@@ -454,6 +464,5 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.4)',
   },
 });
