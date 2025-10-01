@@ -14,7 +14,7 @@ interface GeminiResponse {
 }
 
 class GeminiService {
-  private apiKey: string = GEMINI_API_KEY || '';
+  private apiKey: string = process.env.GEMINI_API_KEY || '';
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
 
   constructor() {
