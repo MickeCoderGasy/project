@@ -180,7 +180,11 @@ export default function ChatScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
+        colors={
+          effectiveTheme === 'light'
+            ? ['#FAFBFF', '#F0F4FF', '#E6EFFF']
+            : ['#0A0E1A', '#1A1F2E', '#2A2F3E']
+        }
         style={styles.backgroundGradient}
       />
       <SafeAreaView style={styles.safeArea}>
@@ -189,19 +193,24 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-          <BlurView intensity={30} tint="dark" style={styles.header}>
-            <Text style={styles.headerTitle}>AI Trading Assistant</Text>
+          <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.aiIcon, { backgroundColor: `${colors.primary}30` }]}>
+                <Bot size={20} color={colors.primary} />
+              </View>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>AI Trading Assistant</Text>
+            </View>
             <TouchableOpacity 
               style={styles.toggleButton}
               onPress={() => setShowAnalysis(!showAnalysis)}
             >
-              <BlurView intensity={40} tint="light" style={styles.toggleButtonInner}>
+              <BlurView intensity={40} tint={effectiveTheme} style={[styles.toggleButtonInner, { borderColor: colors.border }]}>
                 {showAnalysis ? (
-                  <ToggleRight size={24} color="#60A5FA" />
+                  <ToggleRight size={20} color={colors.primary} />
                 ) : (
-                  <ToggleLeft size={24} color="#9CA3AF" />
+                  <ToggleLeft size={20} color={colors.textMuted} />
                 )}
-                <Text style={styles.toggleText}>Analysis</Text>
+                <Text style={[styles.toggleText, { color: colors.text }]}>Analysis</Text>
               </BlurView>
             </TouchableOpacity>
           </BlurView>
@@ -218,21 +227,24 @@ export default function ChatScreen() {
               {messages.map(renderMessage)}
               {isLoading && (
                 <BlurView 
-                  intensity={20} 
-                  tint="dark" 
+                  intensity={effectiveTheme === 'light' ? 60 : 20} 
+                  tint={effectiveTheme} 
                   style={[styles.messageContainer, styles.aiMessage]}
                 >
                   <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
+                    colors={effectiveTheme === 'light' ? 
+                      ['rgba(0, 0, 0, 0.05)', 'rgba(0, 0, 0, 0.02)'] :
+                      ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']
+                    }
                     style={styles.messageGradient}
                   >
                     <View style={styles.messageHeader}>
                       <View style={styles.messageIcon}>
-                        <Bot size={16} color="#22C55E" />
+                        <Bot size={16} color={colors.primary} />
                       </View>
-                      <Text style={styles.messageTime}>Typing...</Text>
+                      <Text style={[styles.messageTime, { color: colors.textMuted }]}>Typing...</Text>
                     </View>
-                    <Text style={styles.loadingText}>AI is analyzing your request...</Text>
+                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>AI is analyzing your request...</Text>
                   </LinearGradient>
                 </BlurView>
               )}
@@ -248,14 +260,18 @@ export default function ChatScreen() {
         </View>
 
         {/* Input Area */}
-          <BlurView intensity={40} tint="dark" style={styles.inputContainer}>
+          <BlurView intensity={effectiveTheme === 'light' ? 80 : 40} tint={effectiveTheme} style={[styles.inputContainer, { borderColor: colors.border }]}>
             <View style={styles.inputWrapper}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { 
+                  backgroundColor: colors.inputBackground, 
+                  borderColor: colors.border,
+                  color: colors.text 
+                }]}
                 value={inputText}
                 onChangeText={setInputText}
                 placeholder="Ask about a stock symbol (e.g., AAPL)..."
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 maxLength={500}
               />
@@ -265,10 +281,10 @@ export default function ChatScreen() {
                 disabled={!inputText.trim() || isLoading}
               >
                 <LinearGradient
-                  colors={inputText.trim() ? ['#3B82F6', '#1D4ED8'] : ['#374151', '#4B5563']}
+                  colors={inputText.trim() ? [colors.primary, colors.primaryDark] : [colors.border, colors.borderLight]}
                   style={styles.sendButtonGradient}
                 >
-                  <Send size={20} color={inputText.trim() ? '#FFFFFF' : '#9CA3AF'} />
+                  <Send size={18} color={inputText.trim() ? '#FFFFFF' : colors.textMuted} />
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -301,40 +317,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 16,
     marginHorizontal: 20,
     marginTop: 10,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   toggleButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   toggleButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   toggleText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   contentContainer: {
     flex: 1,
@@ -348,20 +375,19 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     marginBottom: 16,
-    borderRadius: 20,
+    borderRadius: 24,
     maxWidth: '85%',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   messageGradient: {
-    padding: 16,
-    borderRadius: 20,
+    padding: 18,
+    borderRadius: 24,
   },
   userMessage: {
     alignSelf: 'flex-end',
@@ -377,24 +403,21 @@ const styles = StyleSheet.create({
   messageIcon: {
     width: 24,
     height: 24,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   messageTime: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
   },
   messageText: {
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontSize: 15,
     lineHeight: 22,
   },
   loadingText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 15,
     fontStyle: 'italic',
   },
   analysisScrollView: {
@@ -402,19 +425,18 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   analysisContainer: {
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 15,
   },
   analysisGradient: {
-    padding: 24,
-    borderRadius: 24,
+    padding: 28,
+    borderRadius: 28,
   },
   analysisHeader: {
     flexDirection: 'row',
@@ -424,19 +446,15 @@ const styles = StyleSheet.create({
   analysisIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(96, 165, 250, 0.2)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(96, 165, 250, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   analysisTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   analysisGrid: {
     flexDirection: 'row',
@@ -446,54 +464,52 @@ const styles = StyleSheet.create({
   },
   analysisItem: {
     width: '32%', // Adjusted for 3 items per row
-    padding: 16,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
     marginBottom: 12, // Added margin for spacing
   },
   analysisLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   analysisValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   keyFactors: {
-    padding: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  keyFactorsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  keyFactor: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  inputContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginHorizontal: 20,
-    marginBottom: 10,
+    padding: 18,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  keyFactorsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  keyFactor: {
+    fontSize: 13,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  inputContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -501,20 +517,17 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 15,
     maxHeight: 100,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginLeft: 12,
     overflow: 'hidden',
   },
@@ -523,13 +536,13 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 22,
+    borderRadius: 20,
   },
   sendButtonActive: {
-    shadowColor: '#3B82F6',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 6,
   },
 });

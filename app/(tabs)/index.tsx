@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Eye, Activity } from 'lucide-react-native';
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Eye, Activity, Plus, Bell, Search } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function HomeScreen() {
@@ -13,10 +13,10 @@ export default function HomeScreen() {
   const dailyChangePercent = 1.87;
 
   const marketData = [
-    { symbol: 'AAPL', price: 178.25, change: 2.15, changePercent: 1.22 },
-    { symbol: 'GOOGL', price: 142.80, change: -1.45, changePercent: -1.01 },
-    { symbol: 'MSFT', price: 415.30, change: 5.80, changePercent: 1.42 },
-    { symbol: 'TSLA', price: 248.42, change: -8.25, changePercent: -3.21 },
+    { symbol: 'AAPL', name: 'Apple Inc.', price: 178.25, change: 2.15, changePercent: 1.22, volume: '45.2M' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 142.80, change: -1.45, changePercent: -1.01, volume: '28.1M' },
+    { symbol: 'MSFT', name: 'Microsoft Corp.', price: 415.30, change: 5.80, changePercent: 1.42, volume: '32.8M' },
+    { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.42, change: -8.25, changePercent: -3.21, volume: '67.3M' },
   ];
 
   const aiInsights = [
@@ -37,11 +37,185 @@ export default function HomeScreen() {
     },
   ];
 
+  const quickActions = [
+    { icon: Plus, label: 'Add Stock', color: colors.primary },
+    { icon: BarChart3, label: 'Analytics', color: colors.success },
+    { icon: Bell, label: 'Alerts', color: colors.warning },
+    { icon: Search, label: 'Research', color: colors.primary },
+  ];
   const renderStockItem = (stock: any) => (
-    <View key={stock.symbol} style={styles.stockItem}>
-      <View style={styles.stockInfo}>
-        <Text style={[styles.stockSymbol, { color: colors.text }]}>{stock.symbol}</Text>
-        <Text style={[styles.stockPrice, { color: colors.textSecondary }]}>${stock.price}</Text>
+    <TouchableOpacity key={stock.symbol} style={[styles.stockItem, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+      <BlurView intensity={effectiveTheme === 'light' ? 40 : 15} tint={effectiveTheme} style={styles.stockItemBlur}>
+        <View style={styles.stockHeader}>
+          <View style={styles.stockInfo}>
+            <Text style={[styles.stockSymbol, { color: colors.text }]}>{stock.symbol}</Text>
+            <Text style={[styles.stockName, { color: colors.textTertiary }]}>{stock.name}</Text>
+          </View>
+          <View style={styles.stockPriceContainer}>
+            <Text style={[styles.stockPrice, { color: colors.text }]}>${stock.price}</Text>
+            <Text style={[styles.stockVolume, { color: colors.textMuted }]}>Vol: {stock.volume}</Text>
+          </View>
+        </View>
+        <View style={styles.stockFooter}>
+          <View style={[styles.changeContainer, stock.change >= 0 ? styles.positive : styles.negative]}>
+            {stock.change >= 0 ? (
+              <TrendingUp size={12} color={colors.success} />
+            ) : (
+              <TrendingDown size={12} color={colors.error} />
+            )}
+            <Text style={[styles.changeText, { color: stock.change >= 0 ? colors.success : colors.error }]}>
+              ${Math.abs(stock.change).toFixed(2)} ({Math.abs(stock.changePercent).toFixed(2)}%)
+            </Text>
+          </View>
+        </View>
+      </BlurView>
+    </TouchableOpacity>
+  );
+
+  const renderQuickAction = (action: any, index: number) => (
+    <TouchableOpacity key={index} style={styles.quickActionItem}>
+      <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.quickActionBlur, { borderColor: colors.border }]}>
+        <LinearGradient
+          colors={[`${action.color}20`, `${action.color}10`]}
+          style={styles.quickActionGradient}
+        >
+          <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}30` }]}>
+            <action.icon size={20} color={action.color} />
+          </View>
+          <Text style={[styles.quickActionLabel, { color: colors.text }]}>{action.label}</Text>
+        </LinearGradient>
+      </BlurView>
+    </TouchableOpacity>
+  );
+
+  const renderInsightItem = (insight: any, index: number) => (
+    <TouchableOpacity key={index} style={styles.insightCard}>
+      <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.insightBlur, { borderColor: colors.border }]}>
+        <LinearGradient
+          colors={
+            insight.type === 'bullish' ? [`${colors.success}20`, `${colors.success}05`] :
+            insight.type === 'warning' ? [`${colors.warning}20`, `${colors.warning}05`] :
+            [`${colors.primary}20`, `${colors.primary}05`]
+          }
+          style={styles.insightGradient}
+        >
+          <View style={styles.insightHeader}>
+            <View style={[styles.insightIcon, 
+              insight.type === 'bullish' ? { backgroundColor: `${colors.success}30` } : 
+              insight.type === 'warning' ? { backgroundColor: `${colors.warning}30` } : 
+              { backgroundColor: `${colors.primary}30` }
+            ]}>
+              {insight.type === 'bullish' ? <TrendingUp size={16} color={colors.success} /> :
+               insight.type === 'warning' ? <Activity size={16} color={colors.warning} /> :
+               <BarChart3 size={16} color={colors.primary} />}
+            </View>
+            <Text style={[styles.insightTitle, { color: colors.text }]}>{insight.title}</Text>
+          </View>
+          <Text style={[styles.insightDescription, { color: colors.textSecondary }]}>{insight.description}</Text>
+        </LinearGradient>
+      </BlurView>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <LinearGradient
+        colors={
+          effectiveTheme === 'light'
+            ? ['#FAFBFF', '#F0F4FF', '#E6EFFF']
+            : ['#0A0E1A', '#1A1F2E', '#2A2F3E']
+        }
+        style={styles.backgroundGradient}
+      />
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Enhanced Header */}
+          <View style={styles.headerContainer}>
+            <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
+              <View style={styles.headerLeft}>
+                <View style={styles.avatarContainer}>
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryLight]}
+                    style={styles.avatar}
+                  >
+                    <Text style={styles.avatarText}>T</Text>
+                  </LinearGradient>
+                </View>
+                <View>
+                  <Text style={[styles.greeting, { color: colors.textMuted }]}>Good morning</Text>
+                  <Text style={[styles.userName, { color: colors.text }]}>Trader</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.notificationButton}>
+                <BlurView intensity={40} tint={effectiveTheme} style={[styles.notificationBlur, { borderColor: colors.border }]}>
+                  <Bell size={20} color={colors.primary} />
+                  <View style={[styles.notificationDot, { backgroundColor: colors.error }]} />
+                </BlurView>
+              </TouchableOpacity>
+            </BlurView>
+          </View>
+
+          {/* Enhanced Portfolio Card */}
+          <View style={styles.portfolioContainer}>
+            <BlurView intensity={effectiveTheme === 'light' ? 80 : 35} tint={effectiveTheme} style={[styles.portfolioCard, { borderColor: colors.border }]}>
+              <LinearGradient
+                colors={effectiveTheme === 'light' ? 
+                  ['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.05)'] :
+                  ['rgba(99, 102, 241, 0.2)', 'rgba(139, 92, 246, 0.1)']
+                }
+                style={styles.portfolioGradient}
+              >
+                <View style={styles.portfolioHeader}>
+                  <View style={[styles.portfolioIcon, { backgroundColor: `${colors.primary}30` }]}>
+                    <DollarSign size={24} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.portfolioLabel, { color: colors.textSecondary }]}>Total Portfolio</Text>
+                </View>
+                <Text style={[styles.portfolioValue, { color: colors.text }]}>
+                  ${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </Text>
+                <View style={styles.portfolioChange}>
+                  <BlurView intensity={30} tint={effectiveTheme} style={[styles.changeChip, { backgroundColor: `${colors.success}20`, borderColor: `${colors.success}30` }]}>
+                    <TrendingUp size={14} color={colors.success} />
+                    <Text style={[styles.changeValue, { color: colors.success }]}>
+                      +${dailyChange.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </BlurView>
+                  <Text style={[styles.changePercent, { color: colors.success }]}>+{dailyChangePercent}%</Text>
+                </View>
+              </LinearGradient>
+            </BlurView>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActionsContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+            <View style={styles.quickActionsGrid}>
+              {quickActions.map(renderQuickAction)}
+            </View>
+          </View>
+
+          {/* Market Overview */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Market Overview</Text>
+              <TouchableOpacity>
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>See All</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.marketGrid}>
+              {marketData.map(renderStockItem)}
+            </View>
+          </View>
+
+          {/* AI Insights */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>AI Insights</Text>
+            <View style={styles.insightsContainer}>
+              {aiInsights.map(renderInsightItem)}
+            </View>
+          </View>
+        </ScrollView>
       </View>
       <View style={styles.stockChange}>
         <View style={[styles.changeContainer, stock.change >= 0 ? styles.positive : styles.negative, { borderColor: colors.border }]}>
@@ -110,37 +284,6 @@ export default function HomeScreen() {
                 <Text style={[styles.portfolioTitle, { color: colors.textSecondary }]}>Portfolio Value</Text>
               </View>
               <Text style={[styles.portfolioValue, { color: colors.text }]}>${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
-              <View style={styles.portfolioChange}>
-                <BlurView intensity={40} tint={effectiveTheme} style={[styles.changeContainer, dailyChange >= 0 ? styles.positive : styles.negative, { borderColor: colors.border }]}>
-                  {dailyChange >= 0 ? (
-                    <TrendingUp size={16} color={colors.success} />
-                  ) : (
-                    <TrendingDown size={16} color={colors.error} />
-                  )}
-                  <Text style={[styles.changeText, dailyChange >= 0 ? styles.positiveText : styles.negativeText]}>
-                    +${dailyChange.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({dailyChangePercent}%)
-                  </Text>
-                </BlurView>
-                <Text style={[styles.changeLabel, { color: colors.textMuted }]}>Today</Text>
-              </View>
-            </LinearGradient>
-          </BlurView>
-
-          {/* Market Overview */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Market Overview</Text>
-            <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.marketCard, { borderColor: colors.border }]}>
-              {marketData.map(renderStockItem)}
-            </BlurView>
-            </View>
-
-          {/* AI Insights */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>AI Insights</Text>
-            {aiInsights.map(renderInsightItem)}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
     </View>
   );
 }
@@ -160,175 +303,290 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  headerContainer: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 16,
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 20,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    borderWidth: 1,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  watchlistButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  glassButton: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  portfolioCard: {
-    marginHorizontal: 20,
     borderRadius: 24,
-    marginBottom: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  portfolioGradient: {
-    padding: 24,
-    borderRadius: 24,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  iconContainer: {
+  avatarContainer: {
+    marginRight: 12,
+  },
+  avatar: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  greeting: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  notificationButton: {
+    position: 'relative',
+  },
+  notificationBlur: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  portfolioContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  portfolioCard: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 15,
+  },
+  portfolioGradient: {
+    padding: 28,
   },
   portfolioHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  portfolioTitle: {
+  portfolioIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  portfolioLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   portfolioValue: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: '800',
-    marginBottom: 12,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginBottom: 16,
+    letterSpacing: -1,
   },
   portfolioChange: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  changeContainer: {
+  changeChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    overflow: 'hidden',
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
+    overflow: 'hidden',
   },
-  positive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  negative: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  changeText: {
+  changeValue: {
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,
   },
-  positiveText: {
-    color: '#22C55E',
+  changePercent: {
+    fontSize: 16,
+    fontWeight: '700',
   },
-  negativeText: {
-    color: '#EF4444',
+  quickActionsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  changeLabel: {
+  quickActionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickActionItem: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  quickActionBlur: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  quickActionGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickActionLabel: {
     fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   section: {
     paddingHorizontal: 20,
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  marketCard: {
-    borderRadius: 20,
-    padding: 16,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 7,
-  },
-  stockItem: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  marketGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  stockItem: {
+    width: '48%',
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  stockItemBlur: {
+    padding: 16,
+  },
+  stockHeader: {
+    marginBottom: 12,
   },
   stockInfo: {
-    flex: 1,
+    marginBottom: 8,
   },
   stockSymbol: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 2,
   },
-  stockPrice: {
-    fontSize: 14,
+  stockName: {
+    fontSize: 12,
+    fontWeight: '500',
   },
-  stockChange: {
+  stockPriceContainer: {
     alignItems: 'flex-end',
   },
-  insightItem: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+  stockPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  stockVolume: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  stockFooter: {
+    alignItems: 'flex-start',
+  },
+  changeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  positive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+  },
+  negative: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  changeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  insightsContainer: {
+    gap: 12,
+  },
+  insightCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  insightBlur: {
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  insightGradient: {
+    padding: 20,
   },
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   insightIcon: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

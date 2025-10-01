@@ -223,8 +223,8 @@ export default function AuthScreen() {
       <LinearGradient
         colors={
           effectiveTheme === 'light'
-            ? ['#F8FAFC', '#E2E8F0', '#CBD5E1']
-            : ['#0F172A', '#1E293B', '#334155']
+            ? ['#FAFBFF', '#F0F4FF', '#E6EFFF']
+            : ['#0A0E1A', '#1A1F2E', '#2A2F3E']
         }
         style={styles.backgroundGradient}
       />
@@ -240,15 +240,15 @@ export default function AuthScreen() {
         {/* Header */}
         <View style={styles.header}>
           <BlurView
-            intensity={effectiveTheme === 'light' ? 80 : 30}
+            intensity={effectiveTheme === 'light' ? 90 : 35}
             tint={effectiveTheme}
             style={[styles.logoContainer, { borderColor: colors.border }]}
           >
             <LinearGradient
-              colors={[colors.primary, colors.primaryLight]}
+              colors={[colors.primaryLight, colors.primary]}
               style={styles.logoGradient}
             >
-              <TrendingUp size={32} color="#FFFFFF" />
+              <TrendingUp size={28} color="#FFFFFF" />
             </LinearGradient>
           </BlurView>
           
@@ -263,11 +263,11 @@ export default function AuthScreen() {
           {features.map((feature, index) => (
             <BlurView
               key={index}
-              intensity={effectiveTheme === 'light' ? 60 : 20}
+              intensity={effectiveTheme === 'light' ? 70 : 25}
               tint={effectiveTheme}
               style={[styles.featureCard, { borderColor: colors.border }]}
             >
-              <View style={[styles.featureIcon, { backgroundColor: `${colors.primary}20` }]}>
+              <View style={[styles.featureIcon, { backgroundColor: `${colors.primary}25` }]}>
                 <feature.icon size={24} color={colors.primary} />
               </View>
               <View style={styles.featureContent}>
@@ -285,7 +285,7 @@ export default function AuthScreen() {
         {/* Sign In Button */}
         <View style={styles.authContainer}>
           <BlurView
-            intensity={effectiveTheme === 'light' ? 80 : 30}
+            intensity={effectiveTheme === 'light' ? 90 : 35}
             tint={effectiveTheme}
             style={[styles.authCard, { borderColor: colors.border }]}
           >
@@ -297,12 +297,12 @@ export default function AuthScreen() {
             </Text>
             
             <TouchableOpacity
-              style={[styles.googleButton, { opacity: loading ? 0.7 : 1 }]}
+              style={[styles.googleButton, { opacity: loading ? 0.8 : 1 }]}
               onPress={handleGoogleSignIn}
               disabled={loading}
             >
               <LinearGradient
-                colors={['#4285F4', '#34A853', '#FBBC05', '#EA4335']}
+                colors={['#4285F4', '#34A853']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.googleGradient}
@@ -311,7 +311,7 @@ export default function AuthScreen() {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <>
-                    <Mail size={20} color="#FFFFFF" />
+                    <Mail size={18} color="#FFFFFF" />
                     <Text style={styles.googleButtonText}>Continue with Google</Text>
                   </>
                 )}
@@ -387,10 +387,10 @@ export default function AuthScreen() {
 
             {/* Development bypass button */}
             <TouchableOpacity
-              style={[styles.bypassButton, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+              style={[styles.bypassButton, { backgroundColor: colors.surfaceOverlay, borderColor: colors.border }]}
               onPress={handleBypassLogin}
             >
-              <Ionicons name="arrow-forward" size={20} color={colors.text} />
+              <Ionicons name="arrow-forward" size={18} color={colors.text} />
               <Text style={[styles.bypassButtonText, { color: colors.text }]}>
                 Skip Login (Dev)
               </Text>
@@ -421,21 +421,21 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 40,
+    paddingTop: 50,
+    paddingBottom: 50,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 20,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginBottom: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 15,
   },
   logoGradient: {
     width: '100%',
@@ -444,17 +444,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 24,
   },
   featuresContainer: {
     flex: 1,
@@ -463,85 +462,85 @@ const styles = StyleSheet.create({
   featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 20,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
   },
   featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 20,
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   featureDescription: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   authContainer: {
     paddingBottom: 20,
   },
   authCard: {
-    padding: 24,
-    borderRadius: 20,
+    padding: 32,
+    borderRadius: 28,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.12,
+    shadowRadius: 32,
+    elevation: 20,
   },
   authTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   authSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
+    marginBottom: 32,
+    lineHeight: 22,
   },
   googleButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
   },
   googleGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
   },
   googleButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
+    marginLeft: 10,
   },
   disclaimer: {
     fontSize: 12,
@@ -552,7 +551,7 @@ const styles = StyleSheet.create({
   separatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 16,
   },
   separatorLine: {
     flex: 1,
@@ -560,20 +559,22 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   separatorText: {
-    marginHorizontal: 8,
-    fontSize: 12,
+    marginHorizontal: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   emailContainer: {
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 12,
+    marginBottom: 16,
   },
   input: {
     width: '100%',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 10,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 12,
+    fontSize: 15,
   },
   emailButtonsRow: {
     flexDirection: 'row',
@@ -582,26 +583,26 @@ const styles = StyleSheet.create({
   emailButton: {
     flex: 1,
     borderWidth: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emailButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   bypassButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    marginTop: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
     borderWidth: 1,
   },
   bypassButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     marginLeft: 8,
   },

@@ -155,49 +155,62 @@ export default function ProfileScreen() {
       <LinearGradient
         colors={
           effectiveTheme === 'light'
-            ? [colors.background, colors.surface, colors.surfaceSecondary]
-            : ['#0F172A', '#1E293B', '#334155']
+            ? ['#FAFBFF', '#F0F4FF', '#E6EFFF']
+            : ['#0A0E1A', '#1A1F2E', '#2A2F3E']
         }
         style={styles.backgroundGradient}
       />
       <SafeAreaView style={styles.safeArea}>
         <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-          <BlurView intensity={effectiveTheme === 'light' ? 80 : 20} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+          <View style={styles.headerContainer}>
+            <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+              <TouchableOpacity style={styles.settingsButton}>
+                <BlurView intensity={40} tint={effectiveTheme} style={[styles.settingsBlur, { borderColor: colors.border }]}>
+                  <Settings size={20} color={colors.primary} />
+                </BlurView>
+              </TouchableOpacity>
+            </BlurView>
           </BlurView>
 
         {/* User Info Card */}
-          <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.userCard, { borderColor: colors.border }]}>
+          <View style={styles.userCardContainer}>
+            <BlurView intensity={effectiveTheme === 'light' ? 80 : 35} tint={effectiveTheme} style={[styles.userCard, { borderColor: colors.border }]}>
             <LinearGradient
-              colors={[`${colors.primary}20`, `${colors.primary}10`]}
+              colors={effectiveTheme === 'light' ? 
+                ['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.05)'] :
+                ['rgba(99, 102, 241, 0.2)', 'rgba(139, 92, 246, 0.1)']
+              }
               style={styles.userCardGradient}
             >
-              <View style={styles.avatar}>
+              <View style={styles.avatarContainer}>
                 <LinearGradient
                   colors={[colors.primaryLight, colors.primary]}
-                  style={styles.avatarGradient}
+                  style={styles.avatar}
                 >
-                  <User size={32} color="#FFFFFF" />
+                  <User size={28} color="#FFFFFF" />
                 </LinearGradient>
               </View>
               <View style={styles.userInfo}>
                 <Text style={[styles.userName, { color: colors.text }]}>{userInfo.name}</Text>
                 <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{userInfo.email}</Text>
                 <View style={styles.accountBadge}>
-                  <BlurView intensity={20} tint={effectiveTheme} style={[styles.accountTypeContainer, { borderColor: `${colors.primary}50` }]}>
+                  <BlurView intensity={30} tint={effectiveTheme} style={[styles.accountTypeContainer, { borderColor: `${colors.primary}40` }]}>
                     <Text style={[styles.accountType, { color: colors.primary }]}>{userInfo.accountType} Member</Text>
                   </BlurView>
                   <Text style={[styles.memberSince, { color: colors.textMuted }]}>Since {userInfo.memberSince}</Text>
                 </View>
               </View>
             </LinearGradient>
-          </BlurView>
+            </BlurView>
+          </View>
 
           {/* Trading Stats */}
-          <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.statsContainer, { borderColor: colors.border }]}>
+          <View style={styles.statsContainerWrapper}>
+            <BlurView intensity={effectiveTheme === 'light' ? 70 : 30} tint={effectiveTheme} style={[styles.statsContainer, { borderColor: colors.border }]}>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.text }]}>$125,420</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>$125.4K</Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>Portfolio Value</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -210,33 +223,36 @@ export default function ProfileScreen() {
               <Text style={[styles.statValue, { color: colors.text }]}>247</Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Trades</Text>
             </View>
-          </BlurView>
+            </BlurView>
+          </View>
 
         {/* Menu Sections */}
           {menuSections.map((section, sectionIndex) => (
-            <View key={sectionIndex} style={styles.menuSection}>
+            <View key={sectionIndex} style={styles.menuSectionContainer}>
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
-              <BlurView intensity={effectiveTheme === 'light' ? 60 : 20} tint={effectiveTheme} style={[styles.menuCard, { borderColor: colors.border }]}>
+              <BlurView intensity={effectiveTheme === 'light' ? 70 : 25} tint={effectiveTheme} style={[styles.menuCard, { borderColor: colors.border }]}>
                 {section.items.map(renderMenuItem)}
               </BlurView>
             </View>
           ))}
 
         {/* Logout Button */}
-          <BlurView intensity={effectiveTheme === 'light' ? 60 : 25} tint={effectiveTheme} style={[styles.logoutButton, { borderColor: `${colors.error}50` }]}>
+          <View style={styles.logoutContainer}>
+            <BlurView intensity={effectiveTheme === 'light' ? 70 : 30} tint={effectiveTheme} style={[styles.logoutButton, { borderColor: `${colors.error}30` }]}>
             <TouchableOpacity style={styles.logoutButtonContent} onPress={handleLogout}>
               <LinearGradient
-                colors={[`${colors.error}30`, `${colors.error}10`]}
+                colors={[`${colors.error}20`, `${colors.error}05`]}
                 style={styles.logoutGradient}
               >
-                <LogOut size={20} color={colors.error} />
+                <LogOut size={18} color={colors.error} />
                 <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </BlurView>
+            </BlurView>
+          </View>
 
           <View style={styles.footer}>
-            <Text style={[styles.versionText, { color: colors.textMuted }]}>AI Trading Assistant v1.0.0</Text>
+            <Text style={[styles.versionText, { color: colors.textMuted }]}>TradApp v1.0.0</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -259,66 +275,89 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  header: {
+  headerContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginHorizontal: 20,
     marginTop: 10,
-    borderRadius: 20,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    borderWidth: 1,
+    marginBottom: 20,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  userCard: {
-    marginHorizontal: 20,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     borderRadius: 24,
-    marginBottom: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  settingsButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  settingsBlur: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  userCardContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  userCard: {
+    borderRadius: 28,
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 15,
   },
   userCardGradient: {
-    padding: 24,
+    padding: 28,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  avatarContainer: {
+    marginHorizontal: 20,
     marginRight: 16,
-    overflow: 'hidden',
   },
-  avatarGradient: {
-    width: '100%',
-    height: '100%',
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   userInfo: {
     flex: 1,
   },
   userName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   userEmail: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   accountBadge: {
     flexDirection: 'row',
@@ -327,7 +366,7 @@ const styles = StyleSheet.create({
   accountTypeContainer: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 12,
     marginRight: 8,
     overflow: 'hidden',
     borderWidth: 1,
@@ -339,57 +378,60 @@ const styles = StyleSheet.create({
   memberSince: {
     fontSize: 12,
   },
+  statsContainerWrapper: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
   statsContainer: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: 24,
+    padding: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 7,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 10,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     textAlign: 'center',
+    fontWeight: '500',
   },
   statDivider: {
     width: 1,
-    marginHorizontal: 16,
-  },
-  menuSection: {
     marginHorizontal: 20,
+  },
+  menuSectionContainer: {
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 12,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   menuCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 8,
   },
   menuItem: {
     borderBottomWidth: 1,
@@ -399,7 +441,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 20,
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -407,12 +449,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   menuLabel: {
     fontSize: 16,
@@ -431,17 +473,19 @@ const styles = StyleSheet.create({
     marginRight: 8,
     textTransform: 'capitalize',
   },
-  logoutButton: {
-    marginHorizontal: 20,
-    borderRadius: 16,
+  logoutContainer: {
+    paddingHorizontal: 20,
     marginBottom: 24,
+  },
+  logoutButton: {
+    borderRadius: 20,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   logoutButtonContent: {
     width: '100%',
@@ -450,7 +494,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 18,
   },
   logoutText: {
     fontSize: 16,
