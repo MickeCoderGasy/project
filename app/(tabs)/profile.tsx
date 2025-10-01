@@ -172,7 +172,7 @@ export default function ProfileScreen() {
                 </BlurView>
               </TouchableOpacity>
             </BlurView>
-          </BlurView>
+          </View>
 
         {/* User Info Card */}
           <View style={styles.userCardContainer}>

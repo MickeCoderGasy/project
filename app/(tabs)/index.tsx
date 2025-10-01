@@ -216,74 +216,7 @@ export default function HomeScreen() {
             </View>
           </View>
         </ScrollView>
-      </View>
-      <View style={styles.stockChange}>
-        <View style={[styles.changeContainer, stock.change >= 0 ? styles.positive : styles.negative, { borderColor: colors.border }]}>
-          {stock.change >= 0 ? (
-            <TrendingUp size={14} color={colors.success} />
-          ) : (
-            <TrendingDown size={14} color={colors.error} />
-          )}
-          <Text style={[styles.changeText, stock.change >= 0 ? styles.positiveText : styles.negativeText]}>
-            ${Math.abs(stock.change).toFixed(2)} ({Math.abs(stock.changePercent).toFixed(2)}%)
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderInsightItem = (insight: any, index: number) => (
-    <TouchableOpacity key={index} style={[styles.insightItem, { borderColor: colors.border }]}>
-      <View style={styles.insightHeader}>
-        <View style={[styles.insightIcon, 
-          insight.type === 'bullish' ? { backgroundColor: `${colors.success}30` } : 
-          insight.type === 'warning' ? { backgroundColor: `${colors.warning}30` } : { backgroundColor: `${colors.primary}30` }
-        ]}>
-          {insight.type === 'bullish' ? <TrendingUp size={16} color={colors.success} /> :
-           insight.type === 'warning' ? <Activity size={16} color={colors.warning} /> :
-           <BarChart3 size={16} color={colors.primary} />}
-        </View>
-        <Text style={[styles.insightTitle, { color: colors.text }]}>{insight.title}</Text>
-      </View>
-      <Text style={[styles.insightDescription, { color: colors.textSecondary }]}>{insight.description}</Text>
-    </TouchableOpacity>
-  );
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={
-          effectiveTheme === 'light'
-            ? [colors.background, colors.surface, colors.surfaceSecondary]
-            : ['#0F172A', '#1E293B', '#334155']
-        }
-        style={styles.backgroundGradient}
-      />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-          <BlurView intensity={effectiveTheme === 'light' ? 80 : 20} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
-            <Text style={[styles.greeting, { color: colors.text }]}>Good morning, Trader</Text>
-            <TouchableOpacity style={styles.watchlistButton}>
-              <BlurView intensity={40} tint={effectiveTheme} style={[styles.glassButton, { borderColor: colors.border }]}>
-                <Eye size={20} color={colors.primary} />
-              </BlurView>
-            </TouchableOpacity>
-          </BlurView>
-
-        {/* Portfolio Summary */}
-          <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.portfolioCard, { borderColor: colors.border }]}>
-            <LinearGradient
-              colors={[`${colors.primary}20`, `${colors.primary}10`]}
-              style={styles.portfolioGradient}
-            >
-              <View style={styles.portfolioHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}30` }]}>
-                  <DollarSign size={24} color={colors.primary} />
-                </View>
-                <Text style={[styles.portfolioTitle, { color: colors.textSecondary }]}>Portfolio Value</Text>
-              </View>
-              <Text style={[styles.portfolioValue, { color: colors.text }]}>${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+      </SafeAreaView>
     </View>
   );
 }

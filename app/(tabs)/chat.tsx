@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { 
   View, 
   Text, 
@@ -15,6 +16,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, ToggleLeft, ToggleRight, Bot, User, ChartBar as BarChart3 } from 'lucide-react-native';
 import geminiService from '../../services/geminiService';
+
 
 interface Message {
   id: string;
@@ -33,6 +35,7 @@ export default function ChatScreen() {
       timestamp: new Date(),
     }
   ]);
+  const { colors, effectiveTheme } = useTheme();
   const [inputText, setInputText] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
