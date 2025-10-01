@@ -5,6 +5,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Eye, Activity, Plus, Bell, Search } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import NavigationHeader from '@/components/NavigationHeader';
+import BreadcrumbNavigation from '@/components/BreadcrumbNavigation';
 
 export default function HomeScreen() {
   const { colors, effectiveTheme } = useTheme();
@@ -118,7 +120,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingBottom: 100 }]}>
       <LinearGradient
         colors={
           effectiveTheme === 'light'
@@ -127,34 +129,26 @@ export default function HomeScreen() {
         }
         style={styles.backgroundGradient}
       />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* Enhanced Header */}
-          <View style={styles.headerContainer}>
-            <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
-              <View style={styles.headerLeft}>
-                <View style={styles.avatarContainer}>
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryLight]}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>T</Text>
-                  </LinearGradient>
-                </View>
-                <View>
-                  <Text style={[styles.greeting, { color: colors.textMuted }]}>Good morning</Text>
-                  <Text style={[styles.userName, { color: colors.text }]}>Trader</Text>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.notificationButton}>
-                <BlurView intensity={40} tint={effectiveTheme} style={[styles.notificationBlur, { borderColor: colors.border }]}>
-                  <Bell size={20} color={colors.primary} />
-                  <View style={[styles.notificationDot, { backgroundColor: colors.error }]} />
-                </BlurView>
-              </TouchableOpacity>
-            </BlurView>
-          </View>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Enhanced Navigation Header */}
+        <NavigationHeader
+          title="Dashboard"
+          subtitle="Welcome back, Trader"
+          showSearch={true}
+          showNotifications={true}
+          onSearch={() => console.log('Search pressed')}
+          onNotifications={() => console.log('Notifications pressed')}
+        />
 
+        {/* Breadcrumb Navigation */}
+        <BreadcrumbNavigation
+          items={[
+            { label: 'Portfolio', isActive: true },
+          ]}
+          onHomePress={() => console.log('Home pressed')}
+        />
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Enhanced Portfolio Card */}
           <View style={styles.portfolioContainer}>
             <BlurView intensity={effectiveTheme === 'light' ? 80 : 35} tint={effectiveTheme} style={[styles.portfolioCard, { borderColor: colors.border }]}>
@@ -237,73 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
-  },
-  headerContainer: {
-    paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 24,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    marginRight: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  greeting: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  notificationButton: {
-    position: 'relative',
-  },
-  notificationBlur: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    paddingBottom: 20,
   },
   portfolioContainer: {
     paddingHorizontal: 20,

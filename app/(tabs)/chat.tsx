@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import NavigationHeader from '@/components/NavigationHeader';
 import { 
   View, 
   Text, 
@@ -181,7 +182,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 100 }]}>
       <LinearGradient
         colors={
           effectiveTheme === 'light'
@@ -190,19 +191,14 @@ export default function ChatScreen() {
         }
         style={styles.backgroundGradient}
       />
-      <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        {/* Header */}
-          <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.aiIcon, { backgroundColor: `${colors.primary}30` }]}>
-                <Bot size={20} color={colors.primary} />
-              </View>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>AI Trading Assistant</Text>
-            </View>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Enhanced Navigation Header */}
+        <NavigationHeader
+          title="AI Trading Assistant"
+          subtitle="Ask me about any stock"
+          showSearch={false}
+          showNotifications={false}
+          rightComponent={
             <TouchableOpacity 
               style={styles.toggleButton}
               onPress={() => setShowAnalysis(!showAnalysis)}
@@ -216,8 +212,13 @@ export default function ChatScreen() {
                 <Text style={[styles.toggleText, { color: colors.text }]}>Analysis</Text>
               </BlurView>
             </TouchableOpacity>
-          </BlurView>
+          }
+        />
 
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         {/* Chat/Analysis View */}
         <View style={styles.contentContainer}>
           {!showAnalysis ? (
@@ -315,39 +316,6 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  aiIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   toggleButton: {
     borderRadius: 16,

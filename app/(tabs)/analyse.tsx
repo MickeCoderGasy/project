@@ -3,6 +3,9 @@ import AnalysisResultCard from '../../components/AnalysisResultCard'; // Import 
 import geminiService from '@/services/geminiService';
 import { ScrollView, Switch, TextInput, TouchableOpacity, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Slider from '@react-native-community/slider';
+import NavigationHeader from '@/components/NavigationHeader';
+import BreadcrumbNavigation from '@/components/BreadcrumbNavigation';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // --- Types pour la clarté ---
 type TimeFrame = '15m' | '1H' | '4H' | '1D';
@@ -10,6 +13,7 @@ type TradingStyle = 'Tendance' | 'Contre-tendance' | 'Breakout' | 'Range';
 type Indicator = 'RSI' | 'MACD' | 'Moyennes Mobiles' | 'Bollinger';
 
 export default function AnalyseScreen() {
+  const { colors, effectiveTheme } = useTheme();
   // --- États pour les paramètres de base ---
   const [pair, setPair] = useState('EUR/USD');
   const [timeframe, setTimeframe] = useState<TimeFrame>('1H');
@@ -92,7 +96,25 @@ export default function AnalyseScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 100 }]}>
+      {/* Enhanced Navigation Header */}
+      <NavigationHeader
+        title="Market Analysis"
+        subtitle="AI-powered trading insights"
+        showSearch={true}
+        showNotifications={false}
+        onSearch={() => console.log('Search analysis')}
+      />
+
+      {/* Breadcrumb Navigation */}
+      <BreadcrumbNavigation
+        items={[
+          { label: 'Analysis', onPress: () => console.log('Analysis') },
+          { label: 'Configuration', isActive: true },
+        ]}
+        onHomePress={() => console.log('Home pressed')}
+      />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -232,7 +254,6 @@ export default function AnalyseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   scrollView: {
     flex: 1,

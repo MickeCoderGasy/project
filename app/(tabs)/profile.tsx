@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { User, Settings, Bell, Shield, CreditCard, HelpCircle, LogOut, ChevronRight, Moon, Globe, Smartphone } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import NavigationHeader from '@/components/NavigationHeader';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -151,7 +152,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingBottom: 100 }]}>
       <LinearGradient
         colors={
           effectiveTheme === 'light'
@@ -160,20 +161,18 @@ export default function ProfileScreen() {
         }
         style={styles.backgroundGradient}
       />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-          <View style={styles.headerContainer}>
-            <BlurView intensity={effectiveTheme === 'light' ? 80 : 30} tint={effectiveTheme} style={[styles.header, { borderColor: colors.border }]}>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
-              <TouchableOpacity style={styles.settingsButton}>
-                <BlurView intensity={40} tint={effectiveTheme} style={[styles.settingsBlur, { borderColor: colors.border }]}>
-                  <Settings size={20} color={colors.primary} />
-                </BlurView>
-              </TouchableOpacity>
-            </BlurView>
-          </View>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Enhanced Navigation Header */}
+        <NavigationHeader
+          title="Profile"
+          subtitle="Manage your account"
+          showSearch={false}
+          showNotifications={false}
+          showMenu={true}
+          onMenu={() => Alert.alert('Menu', 'Profile menu options')}
+        />
 
+        <ScrollView showsVerticalScrollIndicator={false}>
         {/* User Info Card */}
           <View style={styles.userCardContainer}>
             <BlurView intensity={effectiveTheme === 'light' ? 80 : 35} tint={effectiveTheme} style={[styles.userCard, { borderColor: colors.border }]}>
@@ -274,42 +273,6 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-  },
-  headerContainer: {
-    paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 24,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  settingsButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  settingsBlur: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
   },
   userCardContainer: {
     paddingHorizontal: 20,
