@@ -348,13 +348,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 24,
     maxWidth: '85%',
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   messageGradient: {
     padding: 18,
@@ -397,13 +404,20 @@ const styles = StyleSheet.create({
   },
   analysisContainer: {
     borderRadius: 28,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      },
+    }),
   },
   analysisGradient: {
     padding: 28,
@@ -437,9 +451,14 @@ const styles = StyleSheet.create({
     width: '32%', // Adjusted for 3 items per row
     padding: 14,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     marginBottom: 12, // Added margin for spacing
+    ...Platform.select({
+      android: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   analysisLabel: {
     fontSize: 11,
@@ -455,8 +474,13 @@ const styles = StyleSheet.create({
   keyFactors: {
     padding: 18,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
+    ...Platform.select({
+      android: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   keyFactorsTitle: {
     fontSize: 15,
@@ -474,13 +498,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 10,
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      },
+    }),
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -510,10 +541,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   sendButtonActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
 });

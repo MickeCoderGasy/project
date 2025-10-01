@@ -431,11 +431,17 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 15,
+      },
+    }),
   },
   logoGradient: {
     width: '100%',
@@ -467,11 +473,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   featureIcon: {
     width: 52,
@@ -501,11 +514,18 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.12,
-    shadowRadius: 32,
-    elevation: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
+        shadowRadius: 32,
+      },
+      android: {
+        elevation: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      },
+    }),
   },
   authTitle: {
     fontSize: 26,
@@ -523,11 +543,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
   },
   googleGradient: {
     flexDirection: 'row',

@@ -239,13 +239,19 @@ const styles = StyleSheet.create({
   },
   portfolioCard: {
     borderRadius: 28,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 15,
+      },
+    }),
   },
   portfolioGradient: {
     padding: 28,
@@ -310,13 +316,20 @@ const styles = StyleSheet.create({
   },
   quickActionBlur: {
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      },
+    }),
   },
   quickActionGradient: {
     padding: 16,
@@ -362,13 +375,20 @@ const styles = StyleSheet.create({
     width: '48%',
     marginBottom: 12,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   stockItemBlur: {
     padding: 16,
@@ -430,11 +450,18 @@ const styles = StyleSheet.create({
   },
   insightBlur: {
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   insightGradient: {
     padding: 20,

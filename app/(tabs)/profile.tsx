@@ -282,11 +282,18 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      },
+    }),
   },
   userCardGradient: {
     padding: 28,
@@ -304,11 +311,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   userInfo: {
     flex: 1,
@@ -351,11 +364,18 @@ const styles = StyleSheet.create({
     padding: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   statItem: {
     flex: 1,
@@ -390,11 +410,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   menuItem: {
     borderBottomWidth: 1,
@@ -444,11 +471,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      },
+    }),
   },
   logoutButtonContent: {
     width: '100%',

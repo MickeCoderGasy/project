@@ -55,8 +55,8 @@ const darkColors = {
   surfaceOverlay: 'rgba(30, 41, 59, 0.95)',
   cardBackground: '#1E293B',
   inputBackground: '#334155',
-  tabBarBackground: 'rgba(30, 41, 59, 0.95)',
-  headerBackground: 'rgba(15, 23, 42, 0.95)',
+  tabBarBackground: Platform.OS === 'android' ? '#1E293B' : 'rgba(30, 41, 59, 0.95)',
+  headerBackground: Platform.OS === 'android' ? '#0F172A' : 'rgba(15, 23, 42, 0.95)',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
