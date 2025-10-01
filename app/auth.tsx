@@ -49,6 +49,7 @@ export default function AuthScreen() {
   // --- Configuration Google Auth for Expo ---
   const [request, response, promptAsync] = Google.useAuthRequest({
     // For Expo Go development - you need to create a WEB client ID in Google Console
+    androidClientId: '1033668392601-01r2sc132d5oq29ht2h53cb2cf6j20qu.apps.googleusercontent.com', // Replace with your web client ID
     iosClientId: '1033668392601-01r2sc132d5oq29ht2h53cb2cf6j20qu.apps.googleusercontent.com', // Replace with your web client ID
     // For native iOS builds (when you build standalone app)
     scopes: ['openid', 'profile', 'email'],
@@ -229,15 +230,15 @@ export default function AuthScreen() {
       />
       
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea}>
           <ScrollView
             contentContainerStyle={{ paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             showsVerticalScrollIndicator={false}
           >
-          {/* Header */}
-          <View style={styles.header}>
+        {/* Header */}
+        <View style={styles.header}>
           <BlurView
             intensity={effectiveTheme === 'light' ? 80 : 30}
             tint={effectiveTheme}
@@ -255,10 +256,10 @@ export default function AuthScreen() {
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Your AI-Powered Trading Assistant
           </Text>
-          </View>
+        </View>
 
-          {/* Features */}
-          <View style={styles.featuresContainer}>
+        {/* Features */}
+        <View style={styles.featuresContainer}>
           {features.map((feature, index) => (
             <BlurView
               key={index}
@@ -279,10 +280,10 @@ export default function AuthScreen() {
               </View>
             </BlurView>
           ))}
-          </View>
+        </View>
 
-          {/* Sign In Button */}
-          <View style={styles.authContainer}>
+        {/* Sign In Button */}
+        <View style={styles.authContainer}>
           <BlurView
             intensity={effectiveTheme === 'light' ? 80 : 30}
             tint={effectiveTheme}
@@ -379,7 +380,7 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-
+            
             <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
               By continuing, you agree to our Terms of Service and Privacy Policy
             </Text>
@@ -394,10 +395,10 @@ export default function AuthScreen() {
                 Skip Login (Dev)
               </Text>
             </TouchableOpacity>
-            </BlurView>
-          </View>
+          </BlurView>
+        </View>
           </ScrollView>
-        </SafeAreaView>
+      </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     marginBottom: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -465,13 +466,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 5,
+    elevation: 6,
   },
   featureIcon: {
     width: 48,
@@ -499,13 +500,13 @@ const styles = StyleSheet.create({
   authCard: {
     padding: 24,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
-    elevation: 10,
+    elevation: 12,
   },
   authTitle: {
     fontSize: 24,
@@ -521,13 +522,13 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 6,
   },
   googleGradient: {
     flexDirection: 'row',

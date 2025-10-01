@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 10,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
   },
   headerTitle: {
@@ -279,13 +279,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 24,
     marginBottom: 24,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
-    elevation: 10,
+    elevation: 12,
   },
   userCardGradient: {
     padding: 24,
@@ -345,13 +345,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 24,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 7,
   },
   statItem: {
     flex: 1,
@@ -383,13 +383,13 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 5,
   },
   menuItem: {
     borderBottomWidth: 1,
@@ -435,13 +435,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 16,
     marginBottom: 24,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 5,
   },
   logoutButtonContent: {
     width: '100%',

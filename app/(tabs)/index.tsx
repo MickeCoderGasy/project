@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 10,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
   },
   greeting: {
@@ -192,13 +192,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 24,
     marginBottom: 24,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
-    elevation: 10,
+    elevation: 12,
   },
   portfolioGradient: {
     padding: 24,
@@ -278,13 +278,13 @@ const styles = StyleSheet.create({
   marketCard: {
     borderRadius: 20,
     padding: 16,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 7,
   },
   stockItem: {
     flexDirection: 'row',
@@ -312,13 +312,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 5,
   },
   insightHeader: {
     flexDirection: 'row',
