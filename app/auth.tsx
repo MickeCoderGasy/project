@@ -8,6 +8,8 @@ import {
   Alert,
   Dimensions,
   TextInput,
+  KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -226,9 +228,16 @@ export default function AuthScreen() {
         style={styles.backgroundGradient}
       />
       
-      <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
-        <View style={styles.header}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <SafeAreaView style={styles.safeArea}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 24 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}
+          >
+          {/* Header */}
+          <View style={styles.header}>
           <BlurView
             intensity={effectiveTheme === 'light' ? 80 : 30}
             tint={effectiveTheme}
@@ -246,10 +255,10 @@ export default function AuthScreen() {
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Your AI-Powered Trading Assistant
           </Text>
-        </View>
+          </View>
 
-        {/* Features */}
-        <View style={styles.featuresContainer}>
+          {/* Features */}
+          <View style={styles.featuresContainer}>
           {features.map((feature, index) => (
             <BlurView
               key={index}
@@ -270,10 +279,10 @@ export default function AuthScreen() {
               </View>
             </BlurView>
           ))}
-        </View>
+          </View>
 
-        {/* Sign In Button */}
-        <View style={styles.authContainer}>
+          {/* Sign In Button */}
+          <View style={styles.authContainer}>
           <BlurView
             intensity={effectiveTheme === 'light' ? 80 : 30}
             tint={effectiveTheme}
@@ -385,9 +394,11 @@ export default function AuthScreen() {
                 Skip Login (Dev)
               </Text>
             </TouchableOpacity>
-          </BlurView>
-        </View>
-      </SafeAreaView>
+            </BlurView>
+          </View>
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
