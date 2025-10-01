@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrendingUp, TrendingDown, DollarSign, ChartBar as BarChart3, Eye, Activity } from 'lucide-react-native';
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Eye, Activity } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function HomeScreen() {
