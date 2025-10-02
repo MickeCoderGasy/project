@@ -154,7 +154,7 @@ export default function HomeScreen() {
             <BlurView intensity={effectiveTheme === 'light' ? 80 : 35} tint={effectiveTheme} style={[styles.portfolioCard, { borderColor: colors.border }]}>
               <LinearGradient
                 colors={effectiveTheme === 'light' ? 
-                  ['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.05)'] :
+                  ['rgba(8, 8, 8, 0.1)', 'rgba(139, 92, 246, 0.05)'] :
                   ['rgba(99, 102, 241, 0.2)', 'rgba(139, 92, 246, 0.1)']
                 }
                 style={styles.portfolioGradient}
@@ -239,17 +239,18 @@ const styles = StyleSheet.create({
   },
   portfolioCard: {
     borderRadius: 28,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+    //overflow: Platform.OS === 'android' ? 'visible' : 'hidden', original code
+    overflow: Platform.OS === 'android' ? 'hidden' : 'hidden', // modified code
     borderWidth: 1,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 12 },
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.15,
         shadowRadius: 24,
       },
       android: {
-        elevation: 15,
+       // elevation: 15, manala an'ilay hafa2 anaty Card
       },
     }),
   },
@@ -316,7 +317,8 @@ const styles = StyleSheet.create({
   },
   quickActionBlur: {
     borderRadius: 20,
-    overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+   // overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+    overflow: Platform.OS === 'android' ? 'hidden' : 'hidden',
     borderWidth: 1,
     ...Platform.select({
       ios: {

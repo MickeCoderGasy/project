@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
         shadowRadius: 24,
       },
       android: {
-        elevation: 15,
+       // elevation: 15, manala an'ilay hafa2 anaty Card
       },
     }),
   },
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
       },
       android: {
-        elevation: 10,
+        //elevation: 10, manala an'ilay hafa2 anaty Card
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
       },
     }),
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
         shadowRadius: 32,
       },
       android: {
-        elevation: 20,
+       // elevation: 20, manala an'ilay hafa2 anaty Card
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
       },
     }),
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
         shadowRadius: 16,
       },
       android: {
-        elevation: 10,
+    //    elevation: 10, manala an'ilay hafa2 anaty Card
       },
     }),
   },
