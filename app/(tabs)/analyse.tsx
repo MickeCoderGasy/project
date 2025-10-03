@@ -141,7 +141,7 @@ export default function AnalyseScreen() {
     
     // NOTE: Utilisation de la variable d'environnement pour l'URL du webhook
     // Assurez-vous que votre N8n est accessible via cette URL (par ex. avec ngrok)
-    const maestroWebhookUrl = "http://192.168.1.104:5678/webhook-test/maestro";
+    const maestroWebhookUrl = "http://192.168.1.104:5678/webhook/maestro";
 
     try {
       const response = await fetch(maestroWebhookUrl, {
