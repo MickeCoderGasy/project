@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScrollView,
   TouchableOpacity,
@@ -22,14 +22,21 @@ import {
   ShieldCheck,
   TrendingUp,
   AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from 'lucide-react-native';
-import LottieView from 'lottie-react-native'; // Importation de Lottie
+import LottieView from 'lottie-react-native';
+import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 
-// Activer LayoutAnimation pour Android (si vous l'utilisez. Notez que cette API est moins stable
-// que des bibliothèques comme react-native-reanimated et peut causer des crashes natifs).
-// Pour une stabilité maximale, vous pourriez commenter cette ligne et la référence à LayoutAnimation.
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+// --- Configuration Supabase et Webhook depuis les variables d'environnement ---
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const MAESTRO_WEBHOOK_URL = process.env.EXPO_PUBLIC_WEBHOOK_URL!;
+
+// Vérification de la présence des variables d'environnement pour éviter les erreurs
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !MAESTRO_WEBHOOK_URL) {
+  throw new Error("Les variables d'environnement Supabase ou Webhook ne sont pas définies. Vérifiez votre fichier .env et redémarrez le serveur de développement.");
 }
 
 // --- Types pour la clarté ---
@@ -37,36 +44,22 @@ type TradingStyle = 'intraday' | 'swing';
 type RiskLevel = 'basse' | 'moyenne' | 'Haut';
 type GainLevel = 'min' | 'moyen' | 'Max';
 type ForexPair = 'EUR/USD' | 'USD/JPY' | 'GBP/USD' | 'USD/CHF' | 'AUD/USD' | 'USD/CAD' | 'NZD/USD';
+type StepStatus = 'idle' | 'pending' | 'loading' | 'completed' | 'failed';
 
 // --- Constantes pour les options de sélection ---
-const MAJOR_PAIRS: ForexPair[] = [
-  'EUR/USD',
-  'USD/JPY',
-  'GBP/USD',
-  'USD/CHF',
-  'AUD/USD',
-  'USD/CAD',
-  'NZD/USD',
-];
+const MAJOR_PAIRS: ForexPair[] = ['EUR/USD', 'USD/JPY', 'GBP/USD', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD'];
 const TRADING_STYLES: TradingStyle[] = ['intraday', 'swing'];
 const RISK_LEVELS: RiskLevel[] = ['basse', 'moyenne', 'Haut'];
 const GAIN_LEVELS: GainLevel[] = ['min', 'moyen', 'Max'];
 
-// --- Composant Section Déroulante (CollapsibleSection) ---
-const CollapsibleSection = ({
-  title,
-  children,
-  icon: Icon,
-  style,
-}: {
-  title: string;
-  children: React.ReactNode;
-  icon?: React.ElementType;
-  style?: any; // Permet de passer des styles supplémentaires
-}) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const toggleExpand = () => setIsExpanded(!isExpanded); // Pas de LayoutAnimation pour plus de stabilité
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
+// --- Composant Section Déroulante (CollapsibleSection) ---
+const CollapsibleSection = ({ title, children, icon: Icon, style }: any) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const toggleExpand = () => setIsExpanded(!isExpanded);
   return (
     <BlurView intensity={20} tint="dark" style={[styles.collapsibleContainer, style]}>
       <TouchableOpacity onPress={toggleExpand} style={styles.collapsibleHeader}>
@@ -95,13 +88,8 @@ const SelectionSection = ({ title, options, selectedValue, onSelect }: any) => (
     <Text style={styles.label}>{title}</Text>
     <View style={styles.tagContainer}>
       {options.map((option: string) => (
-        <TouchableOpacity
-          key={option}
-          style={[styles.tag, selectedValue === option && styles.tagSelected]}
-          onPress={() => onSelect(option)}>
-          <Text style={[styles.tagText, selectedValue === option && styles.tagTextSelected]}>
-            {option}
-          </Text>
+        <TouchableOpacity key={option} style={[styles.tag, selectedValue === option && styles.tagSelected]} onPress={() => onSelect(option)}>
+          <Text style={[styles.tagText, selectedValue === option && styles.tagTextSelected]}>{option}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -112,120 +100,180 @@ const SelectionSection = ({ title, options, selectedValue, onSelect }: any) => (
 export default function AnalyseScreen() {
   const { colors, effectiveTheme } = useTheme();
 
-  // --- États pour la configuration de l'analyse ---
+  const supabase = useMemo(() => createClient(SUPABASE_URL, SUPABASE_ANON_KEY), []);
+
   const [pair, setPair] = useState<ForexPair>('EUR/USD');
   const [style, setStyle] = useState<TradingStyle>('intraday');
   const [risk, setRisk] = useState<RiskLevel>('moyenne');
   const [gain, setGain] = useState<GainLevel>('moyen');
 
-  // --- États pour le workflow de la requête et de l'affichage ---
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showAnalysis, setShowAnalysis] = useState(false); // Gère l'affichage entre config et résultat
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
-  // --- Fonction pour lancer l'analyse via le webhook ---
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [overallStatus, setOverallStatus] = useState<'pending' | 'in_progress' | 'completed' | 'failed'>('pending');
+  const [analysisSteps, setAnalysisSteps] = useState([
+    { id: 'security_check', label: 'Vérification de sécurité', status: 'idle' as StepStatus, message: 'En attente...' },
+    { id: 'get_ohlc', label: 'Récupération des données OHLC', status: 'idle' as StepStatus, message: 'En attente...' },
+    { id: 'price_action_analysis', label: 'Analyse Price Action', status: 'idle' as StepStatus, message: 'En attente...' },
+    { id: 'indicator_calculation', label: 'Calcul des Indicateurs', status: 'idle' as StepStatus, message: 'En attente...' },
+    { id: 'signal_generation', label: 'Génération du Signal', status: 'idle' as StepStatus, message: 'En attente...' },
+    { id: 'final_processing', label: 'Traitement final', status: 'idle' as StepStatus, message: 'En attente...' },
+  ]);
+
   const handleStartAnalysis = async () => {
-    const now = new Date();
-    const formattedTime = now.toISOString().slice(0, 16).replace('T', ' '); // Format YYYY-MM-DD HH:mm
-
-    const payload = { pair, style, risk, gain, time: formattedTime };
-    // IMPORTANT : Remplacez '192.168.1.104' par l'adresse IP de votre machine si vous testez sur un appareil physique
-    // ou par 'localhost' si vous testez sur un simulateur/émulateur et que votre serveur tourne sur la même machine.
-    const webhookUrl = 'http://192.168.1.104:5678/webhook-test/maestro';
-
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
-    setShowAnalysis(false); // Revenir à la configuration si une nouvelle analyse est lancée
+    setShowAnalysis(false);
+    setJobId(null);
+    setOverallStatus('pending');
+
+    setAnalysisSteps(
+      analysisSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
+    );
+
+    const now = new Date();
+    const formattedTime = now.toISOString().slice(0, 16).replace('T', ' ');
+    const payload = { pair, style, risk, gain, time: formattedTime };
+    
+    // NOTE: Utilisation de la variable d'environnement pour l'URL du webhook
+    // Assurez-vous que votre N8n est accessible via cette URL (par ex. avec ngrok)
+    const maestroWebhookUrl = "http://192.168.1.104:5678/webhook-test/maestro";
 
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(maestroWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      // Gérer les erreurs HTTP (ex: 404, 500) où la requête a abouti mais le serveur a un problème.
       if (!response.ok) {
-        const errorText = await response.text(); // Tente de lire le corps même en cas d'erreur HTTP
+        const errorText = await response.text();
         throw new Error(`Erreur HTTP ${response.status}: ${errorText || 'Réponse du serveur non valide'}`);
       }
 
-      // Lire le corps de la réponse en texte d'abord pour une meilleure gestion des erreurs JSON
-      const responseBodyText = await response.text();
+      const initialResponse = await response.json();
+      const receivedJobId = initialResponse.jobId;
 
-      if (!responseBodyText.trim()) {
-        throw new SyntaxError('Réponse vide du serveur. Le webhook n\'a pas renvoyé de données JSON.');
+      if (!receivedJobId) {
+        throw new Error("Le serveur n'a pas renvoyé de jobId.");
       }
 
-      let result;
-      try {
-        result = JSON.parse(responseBodyText); // Tenter de parser le texte en JSON
-      } catch (jsonParseError) {
-        // En cas d'erreur de parsing, afficher les 200 premiers caractères de la réponse brute pour le débogage
-        throw new SyntaxError(
-          `La réponse du serveur n'est pas un JSON valide. Réponse reçue: "${responseBodyText.substring(
-            0,
-            200,
-          )}..."`,
-        );
-      }
-
-      // Vérifier si la réponse est un tableau et prendre le premier élément, ou utiliser l'objet directement
-      if (Array.isArray(result) && result.length > 0) {
-        setAnalysisResult(result[0]); // Prend le premier objet du tableau
-      } else if (typeof result === 'object' && result !== null) {
-        setAnalysisResult(result); // Si c'est un objet direct (pas un tableau)
-      } else {
-        throw new Error(
-          'La structure de la réponse du webhook est inattendue. Un objet ou un tableau avec au moins un objet était attendu.',
-        );
-      }
-
-      setShowAnalysis(true); // Afficher les résultats si tout s'est bien passé
+      setJobId(receivedJobId);
     } catch (e: any) {
-      // Log l'erreur complète pour le débogage en console
-      console.error("Erreur lors de l'analyse:", e);
-
-      if (e instanceof SyntaxError) {
-        setError(e.message); // Utiliser le message spécifique que nous avons créé
-      } else if (e instanceof TypeError && e.message.includes('Network request failed')) {
-        setError(
-          "Impossible de se connecter au serveur webhook. Vérifiez que le serveur est en cours d'exécution et accessible (adresse IP correcte ?).",
-        );
-      } else {
-        setError(e.message || 'Une erreur de communication est survenue.');
-      }
-    } finally {
+      console.error("Erreur lors du démarrage de l'analyse:", e);
+      setError(e.message || 'Une erreur de communication est survenue.');
       setIsLoading(false);
+      setOverallStatus('failed');
     }
   };
 
-  // --- Fonction pour rendre l'animation de chargement Lottie ---
+  useEffect(() => {
+    if (!jobId) return;
+
+    const channel: RealtimeChannel = supabase
+      .channel(`job_updates_${jobId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'workflow_jobs',
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          const newRecord = payload.new as any;
+          setOverallStatus(newRecord.overall_status);
+          setError(newRecord.error_message);
+
+          if (newRecord.steps_status) {
+            setAnalysisSteps((prevSteps) =>
+              prevSteps.map((step) => {
+                const n8nStepStatus = newRecord.steps_status[step.id];
+                return n8nStepStatus
+                  ? { ...step, status: n8nStepStatus.status, message: n8nStepStatus.message || step.message }
+                  : step;
+              }),
+            );
+          }
+
+          if (newRecord.overall_status === 'completed') {
+            console.log(newRecord.final_result)
+            setAnalysisResult(newRecord.final_result);
+            setShowAnalysis(true);
+            setIsLoading(false);
+            channel.unsubscribe();
+          } else if (newRecord.overall_status === 'failed') {
+            setIsLoading(false);
+            channel.unsubscribe();
+          }
+        },
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+            console.log(`Successfully SUBSCRIBED to channel job_updates_${jobId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+            console.error(`Error SUBSCRIBING to channel job_updates_${jobId}:`, err);
+            setError(`Erreur d'abonnement Realtime: ${err?.message || 'Inconnu'}`);
+        }
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [jobId, supabase, setError]);
+
   const renderLoadingAnimation = () => (
-    <View style={styles.centerContainer}>
-      <LottieView
-        source={require('../assets/animations/welcome.json')} // <-- Mettez le bon chemin vers VOTRE animation Lottie
-        autoPlay
-        loop={true} // L'animation tourne en boucle pendant le chargement
-        style={styles.lottieAnimation}
-      />
-      <Text style={styles.headerSubtitle}>Analyse en cours...</Text>
+    <View style={styles.fullScreenContainer}>
+      <View style={styles.loadingFixedHeader}>
+        <LottieView
+          source={require('../assets/animations/welcome.json')}
+          autoPlay
+          loop={true}
+          style={styles.lottieAnimation}
+        />
+        <Text style={styles.headerSubtitle}>
+          {overallStatus === 'failed' ? 'Analyse échouée' : 'Analyse en cours...'}
+        </Text>
+        {jobId && <Text style={styles.jobIdText}>ID de la tâche: {jobId}</Text>}
+        {error && <Text style={styles.errorText}>{error}</Text>}
+      </View>
+      <ScrollView contentContainerStyle={styles.progressListContentContainer} style={styles.progressListScrollView}>
+        {analysisSteps.map((step) => (
+          <View key={step.id} style={styles.progressItem}>
+            <View style={styles.progressIconWrapper}>
+              {step.status === 'loading' && <ActivityIndicator size="small" color="#60A5FA" />}
+              {step.status === 'completed' && <CheckCircle size={18} color="#34D399" />}
+              {step.status === 'failed' && <XCircle size={18} color="#F87171" />}
+              {(step.status === 'idle' || step.status === 'pending') && <Clock size={18} color="#94A3B8" />}
+            </View>
+            <View style={styles.progressTextContent}>
+              <Text style={[styles.progressText, step.status === 'failed' && styles.progressTextError]}>
+                {step.label}
+              </Text>
+              {step.message && (
+                <Text style={[styles.progressMessage, step.status === 'failed' ? styles.progressErrorMessage : styles.progressSuccessMessage]}>
+                  {step.message}
+                </Text>
+              )}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 
-  // --- Fonction pour rendre l'écran de configuration de l'analyse ---
   const renderConfiguration = () => (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Text style={styles.headerTitle}>Configuration de l'Analyse</Text>
       <Text style={styles.headerSubtitle}>Définissez les critères pour l'analyse de l'IA.</Text>
-
       <SelectionSection title="Paire de Devises" options={MAJOR_PAIRS} selectedValue={pair} onSelect={setPair} />
       <SelectionSection title="Style de Trading" options={TRADING_STYLES} selectedValue={style} onSelect={setStyle} />
       <SelectionSection title="Niveau de Risque" options={RISK_LEVELS} selectedValue={risk} onSelect={setRisk} />
       <SelectionSection title="Objectif de Gain" options={GAIN_LEVELS} selectedValue={gain} onSelect={setGain} />
-
       <TouchableOpacity style={styles.actionButton} onPress={handleStartAnalysis} disabled={isLoading}>
         {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.actionButtonText}>Lancer l'Analyse</Text>}
       </TouchableOpacity>
@@ -233,7 +281,7 @@ export default function AnalyseScreen() {
     </ScrollView>
   );
 
-  // --- Fonction pour rendre l'affichage des résultats de l'analyse ---
+  // --- FONCTION RENDERANALYSIS TIRÉE DE L'ANCIEN CODE ---
   const renderAnalysis = () => {
     if (error) {
       return (
@@ -260,6 +308,7 @@ export default function AnalyseScreen() {
           <Text style={styles.headerTitle}>Analyse Sans Signal</Text>
           <Text style={styles.headerSubtitle}>
             L'IA n'a pas trouvé de configuration de trading à haute probabilité pour le moment.
+           
           </Text>
 
           {noSignal && noSignal.reasons_if_no_signal && noSignal.reasons_if_no_signal.length > 0 && (
@@ -329,7 +378,6 @@ export default function AnalyseScreen() {
           <KeyValueItem label="Qualité du Timing" value={`${analysisResult.market_validation.timing_quality}`} />
         </CollapsibleSection>
 
-        {/* --- SECTION SIGNAL PRINCIPAL (CONTENANT LES CONDITIONS ET RÈGLES IMBRIQUÉES) --- */}
         <CollapsibleSection title="Signal Principal" icon={TrendingUp}>
           <View style={styles.signalMainInfo}>
             <Text style={[styles.signalType, signal.signal === 'SELL' ? styles.sellSignal : styles.buySignal]}>
@@ -347,42 +395,31 @@ export default function AnalyseScreen() {
           <KeyValueItem label="Ratio R/R" value={signal.risk_management.risk_reward_ratio} />
           <KeyValueItem label="Time Frame Exécution" value={signal.entry_details.execution_timeframe} />
 
-          {/* --- CONDITIONS D'ENTRÉE IMBRIQUÉES --- */}
           {signal.entry_conditions && (
             <CollapsibleSection title="Conditions d'Entrée" icon={Info} style={styles.nestedCollapsible}>
               {signal.entry_conditions.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>
-                  • {item}
-                </Text>
+                <Text key={index} style={styles.listItem}>• {item}</Text>
               ))}
             </CollapsibleSection>
           )}
 
-          {/* --- RÈGLES D'INVALIDATION IMBRIQUÉES --- */}
           {signal.invalidation_rules && (
             <CollapsibleSection title="Règles d'Invalidation" icon={AlertTriangle} style={styles.nestedCollapsible}>
               {signal.invalidation_rules.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>
-                  • {item}
-                </Text>
+                <Text key={index} style={styles.listItem}>• {item}</Text>
               ))}
             </CollapsibleSection>
           )}
         </CollapsibleSection>
-        {/* --- FIN DE LA SECTION SIGNAL PRINCIPAL --- */}
 
         <CollapsibleSection title="Alertes Marché" icon={AlertTriangle}>
           <Text style={styles.subHeader}>Actualités à fort impact (24h)</Text>
           {analysisResult.market_alerts.high_impact_news_next_24h.map((item: string, index: number) => (
-            <Text key={index} style={styles.listItem}>
-              • {item}
-            </Text>
+            <Text key={index} style={styles.listItem}>• {item}</Text>
           ))}
           <Text style={styles.subHeader}>Niveaux techniques à surveiller</Text>
           {analysisResult.market_alerts.technical_levels_to_watch.map((item: string, index: number) => (
-            <Text key={index} style={styles.listItem}>
-              • {item}
-            </Text>
+            <Text key={index} style={styles.listItem}>• {item}</Text>
           ))}
         </CollapsibleSection>
 
@@ -400,27 +437,19 @@ export default function AnalyseScreen() {
           <CollapsibleSection title="Vérifications de Validation" icon={ShieldCheck}>
             <Text style={styles.subHeader}>Confluence Price Action</Text>
             {signal.validation_checks.price_action_confluence.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>
-                • {item}
-              </Text>
+              <Text key={index} style={styles.listItem}>• {item}</Text>
             ))}
             <Text style={styles.subHeader}>Confluence SMC</Text>
             {signal.validation_checks.smc_confluence.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>
-                • {item}
-              </Text>
+              <Text key={index} style={styles.listItem}>• {item}</Text>
             ))}
             <Text style={styles.subHeader}>Indicateurs Techniques</Text>
             {signal.validation_checks.technical_indicators.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>
-                • {item}
-              </Text>
+              <Text key={index} style={styles.listItem}>• {item}</Text>
             ))}
             <Text style={styles.subHeader}>Facteurs de Timing</Text>
             {signal.validation_checks.timing_factors.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>
-                • {item}
-              </Text>
+              <Text key={index} style={styles.listItem}>• {item}</Text>
             ))}
           </CollapsibleSection>
         )}
@@ -472,18 +501,9 @@ export default function AnalyseScreen() {
         rightComponent={
           (analysisResult || error) && !isLoading && (
             <TouchableOpacity style={styles.toggleButton} onPress={() => setShowAnalysis(!showAnalysis)}>
-              <BlurView
-                intensity={40}
-                tint={effectiveTheme}
-                style={[styles.toggleButtonInner, { borderColor: colors.border }]}>
-                {showAnalysis ? (
-                  <ToggleRight size={20} color={colors.primary} />
-                ) : (
-                  <ToggleLeft size={20} color={colors.textMuted} />
-                )}
-                <Text style={[styles.toggleText, { color: colors.text }]}>
-                  {showAnalysis ? 'Config' : 'Résultat'}
-                </Text>
+              <BlurView intensity={40} tint={effectiveTheme} style={[styles.toggleButtonInner, { borderColor: colors.border }]}>
+                {showAnalysis ? <ToggleRight size={20} color={colors.primary} /> : <ToggleLeft size={20} color={colors.textMuted} />}
+                <Text style={[styles.toggleText, { color: colors.text }]}>{showAnalysis ? 'Config' : 'Résultat'}</Text>
               </BlurView>
             </TouchableOpacity>
           )
@@ -491,11 +511,7 @@ export default function AnalyseScreen() {
       />
       <BreadcrumbNavigation items={[{ label: 'Analysis', isActive: true }]} />
       <View style={{ flex: 1 }}>
-        {isLoading
-          ? renderLoadingAnimation()
-          : showAnalysis
-            ? renderAnalysis()
-            : renderConfiguration()}
+        {isLoading ? renderLoadingAnimation() : showAnalysis ? renderAnalysis() : renderConfiguration()}
       </View>
     </View>
   );
@@ -511,81 +527,47 @@ const styles = StyleSheet.create({
   section: { backgroundColor: '#1E293B', borderRadius: 12, padding: 16, marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', color: '#E2E8F0', marginBottom: 12 },
   tagContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tag: {
-    backgroundColor: '#334155',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
+  tag: { backgroundColor: '#334155', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: '#475569' },
   tagSelected: { backgroundColor: '#4F46E5', borderColor: '#60A5FA' },
   tagText: { color: '#E2E8F0', fontWeight: '600' },
   tagTextSelected: { color: 'white' },
-  actionButton: {
-    backgroundColor: '#60A5FA',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 20,
-  },
+  actionButton: { backgroundColor: '#60A5FA', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
   actionButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
   errorText: { color: '#F87171', fontWeight: 'bold', textAlign: 'center', marginTop: 15, fontSize: 16 },
   toggleButton: { borderRadius: 16, overflow: 'hidden' },
-  toggleButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
+  toggleButtonInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   toggleText: { fontSize: 12, fontWeight: '600', marginLeft: 6 },
-  collapsibleContainer: {
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
+  collapsibleContainer: { borderRadius: 16, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
   collapsibleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
   collapsibleTitle: { fontSize: 16, fontWeight: 'bold', color: 'white' },
-  collapsibleContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingTop: 12,
-  },
-  kvRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
+  collapsibleContent: { paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)', paddingTop: 12 },
+  kvRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#334155' },
   kvLabel: { color: '#94A3B8', fontSize: 14 },
   kvValue: { color: 'white', fontSize: 14, fontWeight: '600' },
-  signalMainInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginBottom: 10,
-  },
+  lottieAnimation: { width: 100, height: 100 },
+  
+  // --- STYLES FUSIONNÉS ---
+  fullScreenContainer: { flex: 1, backgroundColor: '#0F172A' },
+  loadingFixedHeader: { alignItems: 'center', padding: 20, paddingBottom: 10, width: '100%' },
+  progressListScrollView: { flex: 1, width: '100%' },
+  progressListContentContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+  progressItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  progressIconWrapper: { width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  progressTextContent: { flex: 1 },
+  progressText: { color: '#E2E8F0', fontSize: 15 },
+  progressTextError: { color: '#F87171', fontWeight: 'bold' },
+  progressMessage: { fontSize: 12, marginTop: 2, color: '#94A3B8' },
+  progressSuccessMessage: { color: '#34D399' },
+  progressErrorMessage: { color: '#F87171' },
+  jobIdText: { color: '#CBD5E1', fontSize: 12, marginTop: 10, marginBottom: 20 },
+  
+  // Styles de l'ancien code pour renderAnalysis
+  signalMainInfo: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 10, marginBottom: 10 },
   signalType: { fontSize: 24, fontWeight: 'bold', paddingHorizontal: 20, paddingVertical: 5, borderRadius: 10 },
   sellSignal: { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171' },
   buySignal: { backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34D399' },
   signalConfidence: { fontSize: 18, color: '#FBBF24', fontWeight: '700' },
   subHeader: { fontSize: 15, fontWeight: 'bold', color: '#E2E8F0', marginTop: 10, marginBottom: 5 },
   listItem: { color: '#CBD5E1', fontSize: 14, paddingLeft: 8, marginBottom: 4 },
-  lottieAnimation: {
-    width: 250,
-    height: 250,
-  },
-  nestedCollapsible: {
-    marginTop: 10, // Un peu d'espace au-dessus
-    backgroundColor: 'rgba(30, 41, 59, 0.7)', // Fond légèrement différent pour la distinction
-    borderColor: 'rgba(255, 255, 255, 0.05)', // Bordure plus légère
-  },
+  nestedCollapsible: { marginTop: 10, backgroundColor: 'rgba(30, 41, 59, 0.7)', borderColor: 'rgba(255, 255, 255, 0.05)' },
 });
