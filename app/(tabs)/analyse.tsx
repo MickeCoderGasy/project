@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ScrollView,
   TouchableOpacity,
@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   UIManager,
   Platform,
+  TextInput, // Added TextInput import
+  LayoutAnimation, // Added LayoutAnimation for smoother transitions
 } from 'react-native';
 import NavigationHeader from '@/components/NavigationHeader';
 import BreadcrumbNavigation from '@/components/BreadcrumbNavigation';
@@ -25,6 +27,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Settings, // Added Settings icon for webhook config
 } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
@@ -32,10 +35,11 @@ import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 // --- Configuration Supabase et Webhook depuis les variables d'environnement ---
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-const MAESTRO_WEBHOOK_URL = process.env.EXPO_PUBLIC_WEBHOOK_URL!;
+// Renamed to ENV_MAESTRO_WEBHOOK_URL to distinguish from custom input
+const ENV_MAESTRO_WEBHOOK_URL = process.env.EXPO_PUBLIC_WEBHOOK_URL!;
 
 // Vérification de la présence des variables d'environnement pour éviter les erreurs
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !MAESTRO_WEBHOOK_URL) {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !ENV_MAESTRO_WEBHOOK_URL) {
   throw new Error("Les variables d'environnement Supabase ou Webhook ne sont pas définies. Vérifiez votre fichier .env et redémarrez le serveur de développement.");
 }
 
@@ -43,11 +47,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !MAESTRO_WEBHOOK_URL) {
 type TradingStyle = 'intraday' | 'swing';
 type RiskLevel = 'basse' | 'moyenne' | 'Haut';
 type GainLevel = 'min' | 'moyen' | 'Max';
-type ForexPair = 'EUR/USD' | 'USD/JPY' | 'GBP/USD' | 'USD/CHF' | 'AUD/USD' | 'USD/CAD' | 'NZD/USD';
+type ForexPair = 'EUR/USD' | 'USD/JPY' | 'GBP/USD' | 'USD/CHF' | 'AUD/USD' | 'USD/CAD' | 'NZD/USD' | 'XAU/USD';
 type StepStatus = 'idle' | 'pending' | 'loading' | 'completed' | 'failed';
 
 // --- Constantes pour les options de sélection ---
-const MAJOR_PAIRS: ForexPair[] = ['EUR/USD', 'USD/JPY', 'GBP/USD', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD'];
+const MAJOR_PAIRS: ForexPair[] = ['EUR/USD', 'USD/JPY', 'GBP/USD', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD' , 'XAU/USD'];
 const TRADING_STYLES: TradingStyle[] = ['intraday', 'swing'];
 const RISK_LEVELS: RiskLevel[] = ['basse', 'moyenne', 'Haut'];
 const GAIN_LEVELS: GainLevel[] = ['min', 'moyen', 'Max'];
@@ -59,7 +63,10 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // --- Composant Section Déroulante (CollapsibleSection) ---
 const CollapsibleSection = ({ title, children, icon: Icon, style }: any) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const toggleExpand = () => setIsExpanded(!isExpanded);
+  const toggleExpand = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // Smooth animation
+    setIsExpanded(!isExpanded);
+  };
   return (
     <BlurView intensity={20} tint="dark" style={[styles.collapsibleContainer, style]}>
       <TouchableOpacity onPress={toggleExpand} style={styles.collapsibleHeader}>
@@ -123,25 +130,47 @@ export default function AnalyseScreen() {
     { id: 'final_processing', label: 'Traitement final', status: 'idle' as StepStatus, message: 'En attente...' },
   ]);
 
+  // --- NOUVEAUX ÉTATS POUR LA CONFIGURATION DU WEBHOOK ---
+  const [customWebhookUrl, setCustomWebhookUrl] = useState(ENV_MAESTRO_WEBHOOK_URL);
+  const [useCustomWebhookUrl, setUseCustomWebhookUrl] = useState(false);
+
+  const resetAnalysisState = useCallback(() => {
+    setIsLoading(false);
+    setShowAnalysis(false);
+    setJobId(null);
+    setOverallStatus('pending');
+    setError(null);
+    setAnalysisResult(null);
+    setAnalysisSteps(
+      analysisSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
+    );
+  }, [analysisSteps]); // Depend on analysisSteps to ensure it's up-to-date
+
   const handleStartAnalysis = async () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // Smooth transition to loading screen
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
     setShowAnalysis(false);
     setJobId(null);
-    setOverallStatus('pending');
-
+    setOverallStatus('in_progress'); // Set to in_progress immediately
     setAnalysisSteps(
-      analysisSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
+      analysisSteps.map((step) => ({ ...step, status: 'pending', message: 'Démarrage...' })),
     );
 
     const now = new Date();
     const formattedTime = now.toISOString().slice(0, 16).replace('T', ' ');
     const payload = { pair, style, risk, gain, time: formattedTime };
     
-    // NOTE: Utilisation de la variable d'environnement pour l'URL du webhook
-    // Assurez-vous que votre N8n est accessible via cette URL (par ex. avec ngrok)
-    const maestroWebhookUrl = "http://192.168.1.104:5678/webhook/maestro";
+    // Utilisation de l'URL personnalisée si activée, sinon celle de l'environnement
+    const maestroWebhookUrl = useCustomWebhookUrl ? customWebhookUrl : ENV_MAESTRO_WEBHOOK_URL;
+    
+    if (!maestroWebhookUrl) {
+      setError("L'URL du webhook n'est pas définie.");
+      setIsLoading(false);
+      setOverallStatus('failed');
+      return;
+    }
 
     try {
       const response = await fetch(maestroWebhookUrl, {
@@ -163,6 +192,12 @@ export default function AnalyseScreen() {
       }
 
       setJobId(receivedJobId);
+      // Update the first step to loading since the request was sent
+      setAnalysisSteps((prevSteps) =>
+        prevSteps.map((step) =>
+          step.id === 'security_check' ? { ...step, status: 'loading', message: 'Envoi de la demande...' } : step
+        )
+      );
     } catch (e: any) {
       console.error("Erreur lors du démarrage de l'analyse:", e);
       setError(e.message || 'Une erreur de communication est survenue.');
@@ -174,55 +209,65 @@ export default function AnalyseScreen() {
   useEffect(() => {
     if (!jobId) return;
 
-    const channel: RealtimeChannel = supabase
-      .channel(`job_updates_${jobId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'workflow_jobs',
-          filter: `job_id=eq.${jobId}`,
-        },
-        (payload) => {
-          const newRecord = payload.new as any;
-          setOverallStatus(newRecord.overall_status);
-          setError(newRecord.error_message);
+    let channel: RealtimeChannel | null = null;
 
-          if (newRecord.steps_status) {
-            setAnalysisSteps((prevSteps) =>
-              prevSteps.map((step) => {
-                const n8nStepStatus = newRecord.steps_status[step.id];
-                return n8nStepStatus
-                  ? { ...step, status: n8nStepStatus.status, message: n8nStepStatus.message || step.message }
-                  : step;
-              }),
-            );
-          }
+    const setupChannel = () => {
+      channel = supabase
+        .channel(`job_updates_${jobId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'workflow_jobs',
+            filter: `job_id=eq.${jobId}`,
+          },
+          (payload) => {
+            const newRecord = payload.new as any;
+            setOverallStatus(newRecord.overall_status);
+            setError(newRecord.error_message);
 
-          if (newRecord.overall_status === 'completed') {
-            console.log(newRecord.final_result)
-            setAnalysisResult(newRecord.final_result);
-            setShowAnalysis(true);
-            setIsLoading(false);
-            channel.unsubscribe();
-          } else if (newRecord.overall_status === 'failed') {
-            setIsLoading(false);
-            channel.unsubscribe();
+            if (newRecord.steps_status) {
+              setAnalysisSteps((prevSteps) =>
+                prevSteps.map((step) => {
+                  const n8nStepStatus = newRecord.steps_status[step.id];
+                  return n8nStepStatus
+                    ? { ...step, status: n8nStepStatus.status, message: n8nStepStatus.message || step.message }
+                    : step;
+                }),
+              );
+            }
+
+            if (newRecord.overall_status === 'completed') {
+              console.log(newRecord.final_result)
+              setAnalysisResult(newRecord.final_result);
+              setShowAnalysis(true);
+              setIsLoading(false);
+              if (channel) channel.unsubscribe();
+            } else if (newRecord.overall_status === 'failed') {
+              setIsLoading(false);
+              if (channel) channel.unsubscribe();
+            }
+          },
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+              console.log(`Successfully SUBSCRIBED to channel job_updates_${jobId}`);
+          } else if (status === 'CHANNEL_ERROR') {
+              console.error(`Error SUBSCRIBING to channel job_updates_${jobId}:`, err);
+              setError(`Erreur d'abonnement Realtime: ${err?.message || 'Inconnu'}`);
+              setIsLoading(false);
+              setOverallStatus('failed');
           }
-        },
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-            console.log(`Successfully SUBSCRIBED to channel job_updates_${jobId}`);
-        } else if (status === 'CHANNEL_ERROR') {
-            console.error(`Error SUBSCRIBING to channel job_updates_${jobId}:`, err);
-            setError(`Erreur d'abonnement Realtime: ${err?.message || 'Inconnu'}`);
-        }
-    });
+      });
+    }
+
+    setupChannel();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [jobId, supabase, setError]);
 
@@ -240,6 +285,10 @@ export default function AnalyseScreen() {
         </Text>
         {jobId && <Text style={styles.jobIdText}>ID de la tâche: {jobId}</Text>}
         {error && <Text style={styles.errorText}>{error}</Text>}
+        {/* Bouton pour arrêter le chargement */}
+        <TouchableOpacity style={styles.cancelButton} onPress={resetAnalysisState}>
+          <Text style={styles.cancelButtonText}>Annuler l'Analyse</Text>
+        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.progressListContentContainer} style={styles.progressListScrollView}>
         {analysisSteps.map((step) => (
@@ -270,6 +319,28 @@ export default function AnalyseScreen() {
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Text style={styles.headerTitle}>Configuration de l'Analyse</Text>
       <Text style={styles.headerSubtitle}>Définissez les critères pour l'analyse de l'IA.</Text>
+
+      {/* Section pour la configuration de l'URL du webhook */}
+      <CollapsibleSection title="Configuration Webhook" icon={Settings} style={styles.webhookConfigSection}>
+        <View style={styles.webhookInputContainer}>
+          <TextInput
+            style={[styles.webhookInput, !useCustomWebhookUrl && styles.webhookInputDisabled]}
+            value={customWebhookUrl}
+            onChangeText={setCustomWebhookUrl}
+            placeholder="Entrez l'URL du webhook..."
+            editable={useCustomWebhookUrl}
+            placeholderTextColor="#64748B"
+          />
+          <TouchableOpacity onPress={() => setUseCustomWebhookUrl(!useCustomWebhookUrl)} style={styles.webhookToggle}>
+            {useCustomWebhookUrl ? <ToggleRight size={24} color="#60A5FA" /> : <ToggleLeft size={24} color="#94A3B8" />}
+            <Text style={styles.webhookToggleText}>{useCustomWebhookUrl ? 'Custom' : 'Env Var'}</Text>
+          </TouchableOpacity>
+        </View>
+        {!useCustomWebhookUrl && (
+          <Text style={styles.webhookInfoText}>Utilise l'URL définie dans les variables d'environnement.</Text>
+        )}
+      </CollapsibleSection>
+
       <SelectionSection title="Paire de Devises" options={MAJOR_PAIRS} selectedValue={pair} onSelect={setPair} />
       <SelectionSection title="Style de Trading" options={TRADING_STYLES} selectedValue={style} onSelect={setStyle} />
       <SelectionSection title="Niveau de Risque" options={RISK_LEVELS} selectedValue={risk} onSelect={setRisk} />
@@ -497,7 +568,7 @@ export default function AnalyseScreen() {
     <View style={styles.container}>
       <NavigationHeader
         title="Analyse de Marché"
-        subtitle={showAnalysis ? "Résultats de l'IA" : 'Configuration manuelle'}
+        subtitle={isLoading ? "Statut de l'Analyse" : showAnalysis ? "Résultats de l'IA" : 'Configuration manuelle'}
         rightComponent={
           (analysisResult || error) && !isLoading && (
             <TouchableOpacity style={styles.toggleButton} onPress={() => setShowAnalysis(!showAnalysis)}>
@@ -570,4 +641,52 @@ const styles = StyleSheet.create({
   subHeader: { fontSize: 15, fontWeight: 'bold', color: '#E2E8F0', marginTop: 10, marginBottom: 5 },
   listItem: { color: '#CBD5E1', fontSize: 14, paddingLeft: 8, marginBottom: 4 },
   nestedCollapsible: { marginTop: 10, backgroundColor: 'rgba(30, 41, 59, 0.7)', borderColor: 'rgba(255, 255, 255, 0.05)' },
+
+  // --- NOUVEAUX STYLES ---
+  webhookConfigSection: { marginBottom: 20 },
+  webhookInputContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  webhookInput: {
+    flex: 1,
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: 'white',
+    fontSize: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  webhookInputDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  webhookToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  webhookToggleText: { color: 'white', marginLeft: 5, fontSize: 12, fontWeight: '600' },
+  webhookInfoText: { color: '#94A3B8', fontSize: 12, marginTop: 5, paddingHorizontal: 5 },
+  cancelButton: {
+    backgroundColor: '#F87171',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+    width: '80%', // Make it a bit narrower than full width
+    alignSelf: 'center', // Center it
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

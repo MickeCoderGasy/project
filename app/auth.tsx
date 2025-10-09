@@ -36,15 +36,17 @@ export default function AuthScreen() {
   const { colors, effectiveTheme } = useTheme();
   const router = useRouter();
 
-  
-  
   const debugRedirectUris = {
     makeRedirectUriDefault: makeRedirectUri(),
     makeRedirectUriWithScheme: makeRedirectUri({ scheme: 'myapp', path: 'auth' }),
     custom: 'myapp://auth',
   };
-  
 
+  console.log('--- Debug Redirect URIs ---');
+  console.log('makeRedirectUriDefault:', debugRedirectUris.makeRedirectUriDefault);
+  console.log('makeRedirectUriWithScheme (example):', debugRedirectUris.makeRedirectUriWithScheme);
+  console.log('Custom (example):', debugRedirectUris.custom);
+  console.log('---------------------------');
 
   // --- Configuration Google Auth for Expo ---
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -57,54 +59,74 @@ export default function AuthScreen() {
     redirectUri: debugRedirectUris.makeRedirectUriDefault,
   });
 
- 
+  // Log the Google Auth Request object when it's ready
+  useEffect(() => {
+    if (request) {
+      console.log('Google Auth Request object ready:', JSON.stringify(request, null, 2));
+    }
+  }, [request]);
 
   // Handle Google OAuth response with detailed logging
   React.useEffect(() => {
-    
+    if (response) {
+      console.log('--- Google Auth Response Received ---');
+      console.log('Response Type:', response.type);
+      console.log('Full Response Object:', JSON.stringify(response, null, 2));
+    }
+
     if (response?.type === 'success') {
       const { authentication } = response;
-      
+      console.log('Google Auth Success! Authentication object:', JSON.stringify(authentication, null, 2));
+
       // Use idToken instead of accessToken for Supabase
       if (authentication?.idToken) {
+        console.log('Using idToken for Supabase sign-in.');
         handleSupabaseSignInWithGoogle(authentication.idToken);
       } else if (authentication?.accessToken) {
+        console.warn('idToken not found, falling back to accessToken for Supabase sign-in. This might not be ideal for all Supabase configurations.');
         handleSupabaseSignInWithGoogle(authentication.accessToken);
       } else {
-        Alert.alert('Authentication Error', 'No authentication token received');
+        Alert.alert('Authentication Error', 'No authentication token (idToken or accessToken) received from Google.');
+        console.error('No authentication token received from Google response.');
         setLoading(false);
       }
     } else if (response?.type === 'error') {
       Alert.alert('Authentication Error', response.error?.message || 'Failed to authenticate with Google');
+      console.error('Google Auth Error:', response.error?.message, response.error);
       setLoading(false);
-    } else if (response?.type === 'cancel') {
-      setLoading(false);
-    } else if (response?.type === 'dismiss') {
+    } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
+      console.log('Google Auth Flow cancelled or dismissed.');
       setLoading(false);
     }
   }, [response]);
 
   // Function to sign in with Supabase using Google token
   const handleSupabaseSignInWithGoogle = async (token: string) => {
-    
+    setLoading(true); // Ensure loading is true while this async operation runs
     try {
-      console.log('Attempting Supabase sign in with token...');
-      
+      console.log('Attempting Supabase sign in with Google token...');
+      console.log('Token (first 10 chars):', token.substring(0, 10) + '...'); // Log partial token for security
+
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: token,
       });
 
-      console.log('=== SUPABASE RESPONSE ===');
+      console.log('=== SUPABASE signInWithIdToken RESPONSE ===');
+      console.log('Supabase Data:', JSON.stringify(data, null, 2));
+      console.log('Supabase Error:', JSON.stringify(error, null, 2));
+
       if (error) {
-        // error.details n'est pas toujours typé; on affiche l'objet complet via JSON.stringify ci-dessus
-        Alert.alert('Sign In Error', `Supabase Error: ${error.message}`);
+        Alert.alert('Sign In Error', `Supabase Error: ${error.message}\nDetails: ${error.details || 'No additional details.'}`);
+        console.error('Supabase signInWithIdToken failed:', error);
       } else {
         Alert.alert('Success', 'Authentication successful! Redirecting...');
+        console.log('Supabase signInWithIdToken successful. Session:', JSON.stringify(data.session, null, 2));
         router.replace('/(tabs)/chat');
       }
     } catch (err: any) {
-      Alert.alert('Unexpected Error', err.message || 'An unexpected error occurred');
+      Alert.alert('Unexpected Error', err.message || 'An unexpected error occurred during Supabase sign-in.');
+      console.error('Unexpected error in handleSupabaseSignInWithGoogle:', err);
     } finally {
       setLoading(false);
     }
@@ -112,50 +134,61 @@ export default function AuthScreen() {
 
   // Handle Google Sign In button press
   const handleGoogleSignIn = async () => {
-    
     if (!request) {
       Alert.alert('Error', 'OAuth request not ready. Please try again.');
+      console.error('Google Auth Request object is null or undefined.');
       return;
     }
 
     setLoading(true);
+    console.log('Launching Google authentication flow...');
     try {
-      
       const result = await promptAsync();
+      console.log('promptAsync result (handled by useEffect):', JSON.stringify(result, null, 2));
     } catch (error: any) {
       Alert.alert('Launch Error', `Failed to launch Google authentication: ${error.message}`);
+      console.error('Failed to launch Google authentication:', error);
       setLoading(false);
     }
   };
 
   // Bypass login for development
   const handleBypassLogin = () => {
+    console.log('Bypass Login activated. Navigating to chat screen.');
     router.replace('/(tabs)/chat');
   };
 
   // --- Connexion par email/mot de passe ---
   // Connexion classique avec Supabase (email/password)
   const handleEmailSignIn = async () => {
-    // Vérifications simples côté client
     if (!email || !password) {
       Alert.alert('Champs requis', "Merci de saisir l'email et le mot de passe.");
+      console.warn('Email or password missing for sign-in.');
       return;
     }
     setEmailLoading(true);
+    console.log('Attempting email sign-in for:', email.trim());
     try {
-      // Appel Supabase pour se connecter avec email/mot de passe
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
+
+      console.log('=== SUPABASE signInWithPassword RESPONSE ===');
+      console.log('Supabase Data:', JSON.stringify(data, null, 2));
+      console.log('Supabase Error:', JSON.stringify(error, null, 2));
+
       if (error) {
         Alert.alert('Connexion échouée', error.message);
+        console.error('Email sign-in failed:', error);
         return;
       }
-      // Connexion réussie → navigation vers l'app principale
+      Alert.alert('Success', 'Connexion réussie !');
+      console.log('Email sign-in successful. Session:', JSON.stringify(data.session, null, 2));
       router.replace('/(tabs)/chat');
     } catch (err: any) {
-      Alert.alert('Erreur', err?.message ?? 'Une erreur est survenue.');
+      Alert.alert('Erreur', err?.message ?? 'Une erreur est survenue lors de la connexion.');
+      console.error('Unexpected error during email sign-in:', err);
     } finally {
       setEmailLoading(false);
     }
@@ -163,14 +196,14 @@ export default function AuthScreen() {
 
   // Inscription avec email/mot de passe
   const handleEmailSignUp = async () => {
-    // Vérifications simples côté client
     if (!email || !password) {
       Alert.alert('Champs requis', "Merci de saisir l'email et le mot de passe.");
+      console.warn('Email or password missing for sign-up.');
       return;
     }
     setEmailLoading(true);
+    console.log('Attempting email sign-up for:', email.trim());
     try {
-      // Appel Supabase pour créer un compte
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -178,18 +211,28 @@ export default function AuthScreen() {
           emailRedirectTo: undefined, // Laisser vide pour mobile; ajouter une URL si nécessaire
         },
       });
+
+      console.log('=== SUPABASE signUp RESPONSE ===');
+      console.log('Supabase Data:', JSON.stringify(data, null, 2));
+      console.log('Supabase Error:', JSON.stringify(error, null, 2));
+
       if (error) {
         Alert.alert("Inscription échouée", error.message);
+        console.error('Email sign-up failed:', error);
         return;
       }
-      // Selon la config Supabase, un email de confirmation peut être requis
       Alert.alert('Compte créé', "Vérifie ta boîte mail si la confirmation est requise.");
-      // On tente de naviguer si la session est déjà active
+      console.log('Email sign-up successful. User:', JSON.stringify(data.user, null, 2));
+
       if (data.session) {
+        console.log('Session established after sign-up, navigating to chat.');
         router.replace('/(tabs)/chat');
+      } else {
+        console.log('No session immediately after sign-up. User might need to confirm email.');
       }
     } catch (err: any) {
-      Alert.alert('Erreur', err?.message ?? 'Une erreur est survenue.');
+      Alert.alert('Erreur', err?.message ?? 'Une erreur est survenue lors de l\'inscription.');
+      console.error('Unexpected error during email sign-up:', err);
     } finally {
       setEmailLoading(false);
     }
