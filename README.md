@@ -1,9 +1,8 @@
-# TradApp 📈
+# Qubext📈
 
-TradApp is a mobile trading application built with React Native and Expo, featuring an AI-powered trading assistant powered by the Gemini API. It provides a modern, intuitive interface for tracking your portfolio, getting market insights, and chatting with an AI for detailed trading analysis.
+Qubext is a mobile trading application built with React Native and Expo, featuring an AI-powered trading assistant powered by the Gemini API. It provides a modern, intuitive interface for tracking your portfolio, getting market insights, and chatting with an AI for detailed trading analysis.
 
-![TradApp Screenshot](https://i.imgur.com/YOUR_SCREENSHOT.png) 
-*(Replace with a screenshot of your application)*
+
 
 ## ✨ Key Features
 
