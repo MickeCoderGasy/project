@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react'; // Ajout de useRef
 import {
   ScrollView,
   TouchableOpacity,
@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
   UIManager,
   Platform,
-  TextInput, // Added TextInput import
-  LayoutAnimation, // Added LayoutAnimation for smoother transitions
+  TextInput,
+  LayoutAnimation,
 } from 'react-native';
 import NavigationHeader from '@/components/NavigationHeader';
 import BreadcrumbNavigation from '@/components/BreadcrumbNavigation';
@@ -27,15 +27,15 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Settings, // Added Settings icon for webhook config
+  Settings,
 } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
-import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase'; // <-- Importez l'instance centralisée
 
 // --- Configuration Supabase et Webhook depuis les variables d'environnement ---
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-// Renamed to ENV_MAESTRO_WEBHOOK_URL to distinguish from custom input
 const ENV_MAESTRO_WEBHOOK_URL = process.env.EXPO_PUBLIC_WEBHOOK_URL!;
 
 // Vérification de la présence des variables d'environnement pour éviter les erreurs
@@ -49,6 +49,14 @@ type RiskLevel = 'basse' | 'moyenne' | 'Haut';
 type GainLevel = 'min' | 'moyen' | 'Max';
 type ForexPair = 'EUR/USD' | 'USD/JPY' | 'GBP/USD' | 'USD/CHF' | 'AUD/USD' | 'USD/CAD' | 'NZD/USD' | 'XAU/USD';
 type StepStatus = 'idle' | 'pending' | 'loading' | 'completed' | 'failed';
+
+// --- Type pour une étape d'analyse (statique) ---
+type AnalysisStep = {
+  id: string;
+  label: string;
+  status: StepStatus;
+  message: string;
+};
 
 // --- Constantes pour les options de sélection ---
 const MAJOR_PAIRS: ForexPair[] = ['EUR/USD', 'USD/JPY', 'GBP/USD', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD' , 'XAU/USD'];
@@ -64,7 +72,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const CollapsibleSection = ({ title, children, icon: Icon, style }: any) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const toggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // Smooth animation
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded(!isExpanded);
   };
   return (
@@ -107,8 +115,6 @@ const SelectionSection = ({ title, options, selectedValue, onSelect }: any) => (
 export default function AnalyseScreen() {
   const { colors, effectiveTheme } = useTheme();
 
-  const supabase = useMemo(() => createClient(SUPABASE_URL, SUPABASE_ANON_KEY), []);
-
   const [pair, setPair] = useState<ForexPair>('EUR/USD');
   const [style, setStyle] = useState<TradingStyle>('intraday');
   const [risk, setRisk] = useState<RiskLevel>('moyenne');
@@ -121,18 +127,26 @@ export default function AnalyseScreen() {
 
   const [jobId, setJobId] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState<'pending' | 'in_progress' | 'completed' | 'failed'>('pending');
-  const [analysisSteps, setAnalysisSteps] = useState([
-    { id: 'security_check', label: 'Vérification de sécurité', status: 'idle' as StepStatus, message: 'En attente...' },
-    { id: 'get_ohlc', label: 'Récupération des données OHLC', status: 'idle' as StepStatus, message: 'En attente...' },
-    { id: 'price_action_analysis', label: 'Analyse Price Action', status: 'idle' as StepStatus, message: 'En attente...' },
-    { id: 'indicator_calculation', label: 'Calcul des Indicateurs', status: 'idle' as StepStatus, message: 'En attente...' },
-    { id: 'signal_generation', label: 'Génération du Signal', status: 'idle' as StepStatus, message: 'En attente...' },
-    { id: 'final_processing', label: 'Traitement final', status: 'idle' as StepStatus, message: 'En attente...' },
+  const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([
+    { id: 'security_check', label: 'Vérification de sécurité', status: 'idle', message: 'En attente...' },
+    { id: 'get_ohlc', label: 'Récupération des données OHLC', status: 'idle', message: 'En attente...' },
+    { id: 'price_action_analysis', label: 'Analyse Price Action', status: 'idle', message: 'En attente...' },
+    { id: 'indicator_calculation', label: 'Calcul des Indicateurs', status: 'idle', message: 'En attente...' },
+    { id: 'signal_generation', label: 'Génération du Signal', status: 'idle', message: 'En attente...' },
+    { id: 'final_processing', label: 'Traitement final', status: 'idle', message: 'En attente...' },
   ]);
 
   // --- NOUVEAUX ÉTATS POUR LA CONFIGURATION DU WEBHOOK ---
   const [customWebhookUrl, setCustomWebhookUrl] = useState(ENV_MAESTRO_WEBHOOK_URL);
   const [useCustomWebhookUrl, setUseCustomWebhookUrl] = useState(false);
+
+  // --- Refs pour gérer le Realtime et le Polling ---
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const realtimeRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const realtimeRetryCountRef = useRef(0);
+  const MAX_REALTIME_RETRIES = 3; // Nombre maximal de tentatives de reconnexion Realtime
+  const POLLING_FREQUENCY_MS = 10000; // Fréquence de polling en ms (10 secondes)
 
   const resetAnalysisState = useCallback(() => {
     setIsLoading(false);
@@ -141,34 +155,89 @@ export default function AnalyseScreen() {
     setOverallStatus('pending');
     setError(null);
     setAnalysisResult(null);
-    setAnalysisSteps(
-      analysisSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
+    setAnalysisSteps((prevSteps) =>
+      prevSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
     );
-  }, [analysisSteps]); // Depend on analysisSteps to ensure it's up-to-date
+    // Nettoyer les ressources Realtime/Polling lors de la réinitialisation
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (realtimeRetryTimeoutRef.current) {
+      clearTimeout(realtimeRetryTimeoutRef.current);
+      realtimeRetryTimeoutRef.current = null;
+    }
+    realtimeRetryCountRef.current = 0;
+  }, []);
 
   const handleStartAnalysis = async () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // Smooth transition to loading screen
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
     setShowAnalysis(false);
     setJobId(null);
-    setOverallStatus('in_progress'); // Set to in_progress immediately
-    setAnalysisSteps(
-      analysisSteps.map((step) => ({ ...step, status: 'pending', message: 'Démarrage...' })),
+    setOverallStatus('in_progress');
+    setAnalysisSteps((prevSteps) =>
+      prevSteps.map((step) => ({ ...step, status: 'pending', message: 'Démarrage...' })),
     );
+    realtimeRetryCountRef.current = 0; // Réinitialiser le compteur de retries
 
     const now = new Date();
     const formattedTime = now.toISOString().slice(0, 16).replace('T', ' ');
-    const payload = { pair, style, risk, gain, time: formattedTime };
     
-    // Utilisation de l'URL personnalisée si activée, sinon celle de l'environnement
+    // --- Récupération de l'access_token Supabase ---
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    let accessToken: string | null = null;
+
+    if (sessionError) {
+      const errorMessage = `Erreur lors de la récupération de la session: ${sessionError.message}`;
+      setError(errorMessage);
+      setIsLoading(false);
+      setOverallStatus('failed');
+      setAnalysisSteps((prevSteps) => prevSteps.map(step => 
+        step.id === 'security_check' ? { ...step, status: 'failed', message: errorMessage } : step
+      ));
+      return;
+    }
+
+    if (sessionData && sessionData.session) {
+      accessToken = sessionData.session.access_token;
+    } else {
+      const errorMessage = "Vous devez être connecté pour lancer une analyse.";
+      setError(errorMessage);
+      setIsLoading(false);
+      setOverallStatus('failed');
+      setAnalysisSteps((prevSteps) => prevSteps.map(step => 
+        step.id === 'security_check' ? { ...step, status: 'failed', message: errorMessage } : step
+      ));
+      return;
+    }
+
+    // --- Payload incluant l'access_token ---
+    const payload = { 
+      pair, 
+      style, 
+      risk, 
+      gain, 
+      time: formattedTime,
+      accessToken: accessToken, // <-- Ajout de l'access_token ici pour n8n
+    };
+    
     const maestroWebhookUrl = useCustomWebhookUrl ? customWebhookUrl : ENV_MAESTRO_WEBHOOK_URL;
     
     if (!maestroWebhookUrl) {
-      setError("L'URL du webhook n'est pas définie.");
+      const errorMessage = "L'URL du webhook n'est pas définie.";
+      setError(errorMessage);
       setIsLoading(false);
       setOverallStatus('failed');
+      setAnalysisSteps((prevSteps) => prevSteps.map(step => 
+        step.id === 'security_check' ? { ...step, status: 'failed', message: errorMessage } : step
+      ));
       return;
     }
 
@@ -192,7 +261,7 @@ export default function AnalyseScreen() {
       }
 
       setJobId(receivedJobId);
-      // Update the first step to loading since the request was sent
+      // Mettre à jour la première étape à loading puisque la requête a été envoyée
       setAnalysisSteps((prevSteps) =>
         prevSteps.map((step) =>
           step.id === 'security_check' ? { ...step, status: 'loading', message: 'Envoi de la demande...' } : step
@@ -200,76 +269,268 @@ export default function AnalyseScreen() {
       );
     } catch (e: any) {
       console.error("Erreur lors du démarrage de l'analyse:", e);
-      setError(e.message || 'Une erreur de communication est survenue.');
+      const errorMessage = e.message || 'Une erreur de communication est survenue.';
+      setError(errorMessage);
       setIsLoading(false);
       setOverallStatus('failed');
+      setAnalysisSteps((prevSteps) => prevSteps.map(step => 
+        step.id === 'security_check' ? { ...step, status: 'failed', message: errorMessage } : step
+      ));
     }
   };
 
-  useEffect(() => {
+  // --- Fonction pour vérifier le statut de la tâche via polling ---
+  const checkJobStatus = useCallback(async () => {
     if (!jobId) return;
 
-    let channel: RealtimeChannel | null = null;
+    console.log(`Polling status for jobId: ${jobId}`);
+    const { data, error: dbError } = await supabase
+      .from('workflow_jobs')
+      .select('*')
+      .eq('job_id', jobId)
+      .single();
 
-    const setupChannel = () => {
-      channel = supabase
-        .channel(`job_updates_${jobId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'workflow_jobs',
-            filter: `job_id=eq.${jobId}`,
-          },
-          (payload) => {
-            const newRecord = payload.new as any;
-            setOverallStatus(newRecord.overall_status);
-            setError(newRecord.error_message);
-
-            if (newRecord.steps_status) {
-              setAnalysisSteps((prevSteps) =>
-                prevSteps.map((step) => {
-                  const n8nStepStatus = newRecord.steps_status[step.id];
-                  return n8nStepStatus
-                    ? { ...step, status: n8nStepStatus.status, message: n8nStepStatus.message || step.message }
-                    : step;
-                }),
-              );
-            }
-
-            if (newRecord.overall_status === 'completed') {
-              console.log(newRecord.final_result)
-              setAnalysisResult(newRecord.final_result);
-              setShowAnalysis(true);
-              setIsLoading(false);
-              if (channel) channel.unsubscribe();
-            } else if (newRecord.overall_status === 'failed') {
-              setIsLoading(false);
-              if (channel) channel.unsubscribe();
-            }
-          },
-        )
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-              console.log(`Successfully SUBSCRIBED to channel job_updates_${jobId}`);
-          } else if (status === 'CHANNEL_ERROR') {
-              console.error(`Error SUBSCRIBING to channel job_updates_${jobId}:`, err);
-              setError(`Erreur d'abonnement Realtime: ${err?.message || 'Inconnu'}`);
-              setIsLoading(false);
-              setOverallStatus('failed');
-          }
-      });
+    if (dbError) {
+      console.error('Error fetching job status via polling:', dbError);
+      // Ne pas arrêter le polling immédiatement, l'erreur pourrait être temporaire
+      setError(`Erreur de récupération du statut (polling): ${dbError.message || 'Inconnu'}`);
+      return;
     }
 
-    setupChannel();
+    if (data) {
+      const newRecord = data as any;
+      setOverallStatus(newRecord.overall_status);
+      setError(newRecord.error_message); // Mettre à jour l'erreur si n8n en a envoyé une
 
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (newRecord.steps_status) {
+        setAnalysisSteps((prevSteps) =>
+          prevSteps.map((step) => {
+            const n8nStepStatus = newRecord.steps_status[step.id];
+            return n8nStepStatus
+              ? { ...step, status: n8nStepStatus.status, message: n8nStepStatus.message || step.message }
+              : step;
+          }),
+        );
       }
+
+      if (newRecord.overall_status === 'completed') {
+        console.log('Polling: Job completed!', newRecord.final_result);
+        setAnalysisResult(newRecord.final_result);
+        setShowAnalysis(true);
+        setIsLoading(false);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        // S'assurer que le canal Realtime est aussi nettoyé si jamais il était actif
+        if (realtimeChannelRef.current) {
+          supabase.removeChannel(realtimeChannelRef.current);
+          realtimeChannelRef.current = null;
+        }
+      } else if (newRecord.overall_status === 'failed') {
+        console.log('Polling: Job failed!');
+        setIsLoading(false);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        if (realtimeChannelRef.current) {
+          supabase.removeChannel(realtimeChannelRef.current);
+          realtimeChannelRef.current = null;
+        }
+      }
+    }
+  }, [jobId, supabase]); // Dépend de jobId et supabase
+
+  // --- Fonction pour démarrer le polling ---
+  const startPolling = useCallback(async () => {
+    // Nettoyer toute instance Realtime si le polling prend le relais
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+    if (realtimeRetryTimeoutRef.current) {
+      clearTimeout(realtimeRetryTimeoutRef.current);
+      realtimeRetryTimeoutRef.current = null;
+    }
+
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    // Effectuer une vérification immédiate avant de démarrer l'intervalle
+    await checkJobStatus();
+    if (overallStatus !== 'completed' && overallStatus !== 'failed') { // Vérifier l'état après la vérification immédiate
+      pollingIntervalRef.current = setInterval(checkJobStatus, POLLING_FREQUENCY_MS);
+      console.log(`Polling started for jobId: ${jobId} every ${POLLING_FREQUENCY_MS / 1000}s`);
+    } else {
+      console.log('Job already finished during initial polling check, no need to start interval.');
+    }
+  }, [jobId, checkJobStatus, overallStatus]); // overallStatus est une dépendance ici pour la vérification initiale
+
+  // --- Fonction pour configurer le canal Realtime ---
+  const setupRealtimeChannel = useCallback(() => {
+    if (!jobId) return;
+
+    // S'assurer qu'un ancien canal est nettoyé avant d'en créer un nouveau
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+    }
+    if (realtimeRetryTimeoutRef.current) {
+      clearTimeout(realtimeRetryTimeoutRef.current);
+      realtimeRetryTimeoutRef.current = null;
+    }
+
+    console.log(`Attempting to subscribe to Realtime channel for job_updates_${jobId}`);
+    realtimeChannelRef.current = supabase
+      .channel(`job_updates_${jobId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'workflow_jobs',
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          const newRecord = payload.new as any;
+          setOverallStatus(newRecord.overall_status);
+          setError(newRecord.error_message);
+
+          if (newRecord.steps_status) {
+            setAnalysisSteps((prevSteps) =>
+              prevSteps.map((step) => {
+                const n8nStepStatus = newRecord.steps_status[step.id];
+                return n8nStepStatus
+                  ? { ...step, status: n8nStepStatus.status, message: n8nStepStatus.message || step.message }
+                  : step;
+              }),
+            );
+          }
+
+          if (newRecord.overall_status === 'completed') {
+            console.log('Realtime: Job completed!', newRecord.final_result);
+            setAnalysisResult(newRecord.final_result);
+            setShowAnalysis(true);
+            setIsLoading(false);
+            if (realtimeChannelRef.current) {
+              supabase.removeChannel(realtimeChannelRef.current);
+              realtimeChannelRef.current = null;
+            }
+            // S'assurer que le polling est arrêté si Realtime réussit et termine le job
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          } else if (newRecord.overall_status === 'failed') {
+            console.log('Realtime: Job failed!');
+            setIsLoading(false);
+            if (realtimeChannelRef.current) {
+              supabase.removeChannel(realtimeChannelRef.current);
+              realtimeChannelRef.current = null;
+            }
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          }
+        },
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+            console.log(`Successfully SUBSCRIBED to channel job_updates_${jobId}`);
+            realtimeRetryCountRef.current = 0; // Réinitialiser le compteur de retries sur succès
+            if (realtimeRetryTimeoutRef.current) {
+              clearTimeout(realtimeRetryTimeoutRef.current);
+              realtimeRetryTimeoutRef.current = null;
+            }
+            // Si le polling était actif, l'arrêter car Realtime fonctionne
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+        } else if (status === 'CHANNEL_ERROR') {
+            const errorDetails = err ? (err.message || JSON.stringify(err)) : 'Objet erreur non défini ou vide';
+            console.error(`Error SUBSCRIBING to channel job_updates_${jobId}:`, errorDetails);
+
+            if (realtimeRetryCountRef.current < MAX_REALTIME_RETRIES) {
+              realtimeRetryCountRef.current++;
+              const delay = Math.pow(2, realtimeRetryCountRef.current) * 1000; // Backoff exponentiel
+              console.log(`Retrying Realtime subscription in ${delay / 1000} seconds. Attempt ${realtimeRetryCountRef.current}/${MAX_REALTIME_RETRIES}`);
+              realtimeRetryTimeoutRef.current = setTimeout(setupRealtimeChannel, delay);
+              setAnalysisSteps((prevSteps) => prevSteps.map(step =>
+                step.id === 'security_check' ? { ...step, status: 'loading', message: `Problème Realtime. Tentative de reconnexion (${realtimeRetryCountRef.current}/${MAX_REALTIME_RETRIES})...` } : step
+              ));
+            } else {
+              console.warn('Max Realtime retries reached. Falling back to polling.');
+              const errorMessage = `Erreur d'abonnement Realtime persistante. Bascule sur la vérification périodique.`;
+              setError(errorMessage);
+              setAnalysisSteps((prevSteps) => prevSteps.map(step =>
+                step.id === 'security_check' ? { ...step, status: 'loading', message: errorMessage } : step
+              ));
+              startPolling(); // Démarrer le polling comme solution de repli
+            }
+        }
+    });
+  }, [jobId, supabase, startPolling]); // Dépend de jobId, supabase et startPolling
+
+  useEffect(() => {
+    if (!jobId) {
+      // Si jobId est null, s'assurer que tout est nettoyé
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (realtimeRetryTimeoutRef.current) {
+        clearTimeout(realtimeRetryTimeoutRef.current);
+        realtimeRetryTimeoutRef.current = null;
+      }
+      realtimeRetryCountRef.current = 0;
+      return;
+    }
+
+    // Lors du montage ou changement de jobId
+    // D'abord, vérifier l'état actuel du job via polling au cas où n8n l'aurait déjà terminé
+    // avant que Realtime ne se connecte ou si Realtime échoue
+    checkJobStatus().then(() => {
+      // Seulement démarrer Realtime/Polling si le job n'est pas déjà terminé/échoué
+      if (overallStatus !== 'completed' && overallStatus !== 'failed') {
+        setupRealtimeChannel();
+      } else {
+        console.log('Job already completed/failed on initial check, skipping Realtime/polling setup.');
+        // Assurez-vous que le Realtime/Polling est nettoyé même si la vérification initiale a trouvé le job terminé
+        if (realtimeChannelRef.current) {
+          supabase.removeChannel(realtimeChannelRef.current);
+          realtimeChannelRef.current = null;
+        }
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      }
+    });
+
+    // Fonction de nettoyage pour le démontage ou le changement de jobId
+    return () => {
+      console.log(`Cleaning up for jobId: ${jobId}`);
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (realtimeRetryTimeoutRef.current) {
+        clearTimeout(realtimeRetryTimeoutRef.current);
+        realtimeRetryTimeoutRef.current = null;
+      }
+      realtimeRetryCountRef.current = 0; // Réinitialiser le compteur de retries pour la prochaine fois
     };
-  }, [jobId, supabase, setError]);
+  }, [jobId, supabase, checkJobStatus, setupRealtimeChannel, overallStatus]); // overallStatus est une dépendance pour la vérification initiale
 
   const renderLoadingAnimation = () => (
     <View style={styles.fullScreenContainer}>
@@ -285,7 +546,6 @@ export default function AnalyseScreen() {
         </Text>
         {jobId && <Text style={styles.jobIdText}>ID de la tâche: {jobId}</Text>}
         {error && <Text style={styles.errorText}>{error}</Text>}
-        {/* Bouton pour arrêter le chargement */}
         <TouchableOpacity style={styles.cancelButton} onPress={resetAnalysisState}>
           <Text style={styles.cancelButtonText}>Annuler l'Analyse</Text>
         </TouchableOpacity>
@@ -320,7 +580,6 @@ export default function AnalyseScreen() {
       <Text style={styles.headerTitle}>Configuration de l'Analyse</Text>
       <Text style={styles.headerSubtitle}>Définissez les critères pour l'analyse de l'IA.</Text>
 
-      {/* Section pour la configuration de l'URL du webhook */}
       <CollapsibleSection title="Configuration Webhook" icon={Settings} style={styles.webhookConfigSection}>
         <View style={styles.webhookInputContainer}>
           <TextInput
@@ -352,7 +611,6 @@ export default function AnalyseScreen() {
     </ScrollView>
   );
 
-  // --- FONCTION RENDERANALYSIS TIRÉE DE L'ANCIEN CODE ---
   const renderAnalysis = () => {
     if (error) {
       return (
@@ -369,7 +627,6 @@ export default function AnalyseScreen() {
       );
     }
 
-    // --- LOGIQUE SPÉCIFIQUE POUR QUAND AUCUN SIGNAL N'EST TROUVÉ ---
     if (!analysisResult.signals || analysisResult.signals.length === 0) {
       const noSignal = analysisResult.no_signal_analysis;
       const marketAlerts = analysisResult.market_alerts;
@@ -379,7 +636,6 @@ export default function AnalyseScreen() {
           <Text style={styles.headerTitle}>Analyse Sans Signal</Text>
           <Text style={styles.headerSubtitle}>
             L'IA n'a pas trouvé de configuration de trading à haute probabilité pour le moment.
-           
           </Text>
 
           {noSignal && noSignal.reasons_if_no_signal && noSignal.reasons_if_no_signal.length > 0 && (
@@ -429,8 +685,7 @@ export default function AnalyseScreen() {
       );
     }
 
-    // --- LOGIQUE POUR QUAND UN SIGNAL EST TROUVÉ ---
-    const signal = analysisResult.signals[0]; // On se base sur le premier signal
+    const signal = analysisResult.signals[0];
 
     return (
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -617,7 +872,6 @@ const styles = StyleSheet.create({
   kvValue: { color: 'white', fontSize: 14, fontWeight: '600' },
   lottieAnimation: { width: 100, height: 100 },
   
-  // --- STYLES FUSIONNÉS ---
   fullScreenContainer: { flex: 1, backgroundColor: '#0F172A' },
   loadingFixedHeader: { alignItems: 'center', padding: 20, paddingBottom: 10, width: '100%' },
   progressListScrollView: { flex: 1, width: '100%' },
@@ -632,7 +886,6 @@ const styles = StyleSheet.create({
   progressErrorMessage: { color: '#F87171' },
   jobIdText: { color: '#CBD5E1', fontSize: 12, marginTop: 10, marginBottom: 20 },
   
-  // Styles de l'ancien code pour renderAnalysis
   signalMainInfo: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 10, marginBottom: 10 },
   signalType: { fontSize: 24, fontWeight: 'bold', paddingHorizontal: 20, paddingVertical: 5, borderRadius: 10 },
   sellSignal: { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171' },
@@ -642,7 +895,6 @@ const styles = StyleSheet.create({
   listItem: { color: '#CBD5E1', fontSize: 14, paddingLeft: 8, marginBottom: 4 },
   nestedCollapsible: { marginTop: 10, backgroundColor: 'rgba(30, 41, 59, 0.7)', borderColor: 'rgba(255, 255, 255, 0.05)' },
 
-  // --- NOUVEAUX STYLES ---
   webhookConfigSection: { marginBottom: 20 },
   webhookInputContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   webhookInput: {
@@ -681,8 +933,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 10,
-    width: '80%', // Make it a bit narrower than full width
-    alignSelf: 'center', // Center it
+    width: '80%',
+    alignSelf: 'center',
   },
   cancelButtonText: {
     color: 'white',
