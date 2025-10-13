@@ -10,6 +10,7 @@ import {
   Platform,
   TextInput,
   LayoutAnimation,
+  Animated,
 } from 'react-native';
 import NavigationHeader from '@/components/NavigationHeader';
 import BreadcrumbNavigation from '@/components/BreadcrumbNavigation';
@@ -28,8 +29,8 @@ import {
   Settings,
   ChevronDown, // Keep for local CollapsibleSection
   ChevronUp,    // Keep for local CollapsibleSection
+  ArrowLeft,    // Pour le bouton de retour
 } from 'lucide-react-native';
-import LottieView from 'lottie-react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import AnalysisResultDisplay from '@/components/AnalysisResultDisplay'; // Import the new component
@@ -38,6 +39,9 @@ import AnalysisResultDisplay from '@/components/AnalysisResultDisplay'; // Impor
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 const ENV_MAESTRO_WEBHOOK_URL = process.env.EXPO_PUBLIC_WEBHOOK_URL!;
+const ENV_GET_JOB_RESULT_WEBHOOK_URL = process.env.EXPO_PUBLIC_GET_JOB_RESULT_WEBHOOK_URL;
+//const ENV_GET_JOB_RESULT_WEBHOOK_URL = "https://n8n.qubextai.tech/webhook/result";
+const ENV_TEST_SIGNAL_ID = process.env.EXPO_PUBLIC_TEST_SIGNAL_ID; // ID de test pour le streaming
 
 // Vérification de la présence des variables d'environnement pour éviter les erreurs
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !ENV_MAESTRO_WEBHOOK_URL) {
@@ -59,11 +63,83 @@ type AnalysisStep = {
   message: string;
 };
 
+// --- Type pour les messages streaming du Signal Agent ---
+type StreamingMessage = {
+  id: string;
+  content: string;
+  timestamp: number;
+  type: 'info' | 'analysis' | 'signal' | 'warning' | 'success';
+};
+
 // --- Constantes pour les options de sélection ---
 const MAJOR_PAIRS: ForexPair[] = ['EUR/USD', 'USD/JPY', 'GBP/USD', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD' , 'XAU/USD'];
 const TRADING_STYLES: TradingStyle[] = ['intraday', 'swing'];
 const RISK_LEVELS: RiskLevel[] = ['basse', 'moyenne', 'Haut'];
 const GAIN_LEVELS: GainLevel[] = ['min', 'moyen', 'Max'];
+
+// --- Messages prédéfinis du Signal Agent pour l'animation typewriter ---
+const SIGNAL_AGENT_MESSAGES: StreamingMessage[] = [
+  {
+    id: '1',
+    content: "🔍 Initialisation de l'analyse de marché...",
+    timestamp: Date.now(),
+    type: 'info'
+  },
+  {
+    id: '2', 
+    content: "📊 Récupération des données OHLC en temps réel...",
+    timestamp: Date.now(),
+    type: 'info'
+  },
+  {
+    id: '3',
+    content: "📈 Analyse de la structure de prix et des niveaux clés...",
+    timestamp: Date.now(),
+    type: 'analysis'
+  },
+  {
+    id: '4',
+    content: "🎯 Évaluation des zones de confluence SMC...",
+    timestamp: Date.now(),
+    type: 'analysis'
+  },
+  {
+    id: '5',
+    content: "⚡ Calcul des indicateurs techniques (RSI, MACD, SMA)...",
+    timestamp: Date.now(),
+    type: 'analysis'
+  },
+  {
+    id: '6',
+    content: "🌍 Analyse du contexte fondamental et des événements économiques...",
+    timestamp: Date.now(),
+    type: 'analysis'
+  },
+  {
+    id: '7',
+    content: "🧠 Évaluation de la confluence multi-dimensionnelle...",
+    timestamp: Date.now(),
+    type: 'analysis'
+  },
+  {
+    id: '8',
+    content: "⚖️ Calcul du score de confluence (objectif: ≥70/100)...",
+    timestamp: Date.now(),
+    type: 'analysis'
+  },
+  {
+    id: '9',
+    content: "🎲 Génération des signaux de trading avec gestion du risque...",
+    timestamp: Date.now(),
+    type: 'signal'
+  },
+  {
+    id: '10',
+    content: "✅ Validation finale et optimisation des paramètres...",
+    timestamp: Date.now(),
+    type: 'success'
+  }
+];
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -102,7 +178,7 @@ const SelectionSection = ({ title, options, selectedValue, onSelect }: any) => {
       <View style={styles.tagContainer}>
         {options.map((option: string) => (
           <TouchableOpacity key={option} style={[styles.tag, selectedValue === option && styles.tagSelected, { borderColor: colors.border }]} onPress={() => onSelect(option)}>
-            <Text style={[styles.tagText, selectedValue === option && styles.tagTextSelected, { color: selectedValue === option ? colors.textOnPrimary : colors.text }]}>{option}</Text>
+            <Text style={[styles.tagText, selectedValue === option && styles.tagTextSelected, { color: selectedValue === option ? 'white' : colors.text }]}>{option}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -138,12 +214,186 @@ export default function AnalyseScreen() {
   const [customWebhookUrl, setCustomWebhookUrl] = useState(ENV_MAESTRO_WEBHOOK_URL);
   const [useCustomWebhookUrl, setUseCustomWebhookUrl] = useState(false);
 
+  // --- États pour le streaming typewriter ---
+  const [streamingMessages, setStreamingMessages] = useState<StreamingMessage[]>([]);
+  const [currentTypingMessage, setCurrentTypingMessage] = useState<string>('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+  // --- États pour l'interprétation streamée du signal ---
+  const [isStreamingInterpretation, setIsStreamingInterpretation] = useState(false);
+  const [interpretationText, setInterpretationText] = useState<string>('');
+  const [interpretationComplete, setInterpretationComplete] = useState(false);
+  const [showInterpretation, setShowInterpretation] = useState(false);
+  
+  // --- Pas besoin d'état pour testSignalId, on utilise directement ENV_TEST_SIGNAL_ID ---
+
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const realtimeRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const realtimeRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const realtimeRetryCountRef = useRef(0);
+  const typewriterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const MAX_REALTIME_RETRIES = 3;
   const POLLING_FREQUENCY_MS = 10000;
+
+  // --- Fonctions pour l'animation typewriter ---
+  const startTypewriterAnimation = useCallback(() => {
+    setStreamingMessages([]);
+    setCurrentTypingMessage('');
+    setIsTyping(true);
+    setCurrentMessageIndex(0);
+    
+    // Démarrer l'animation typewriter
+    const typeNextMessage = (index: number) => {
+      if (index >= SIGNAL_AGENT_MESSAGES.length) {
+        setIsTyping(false);
+        return;
+      }
+      
+      const message = SIGNAL_AGENT_MESSAGES[index];
+      let charIndex = 0;
+      setCurrentTypingMessage('');
+      
+      const typeChar = () => {
+        if (charIndex < message.content.length) {
+          setCurrentTypingMessage(message.content.substring(0, charIndex + 1));
+          charIndex++;
+          typewriterTimeoutRef.current = setTimeout(typeChar, 30 + Math.random() * 20); // Vitesse variable
+        } else {
+          // Message terminé, l'ajouter à la liste
+          setStreamingMessages(prev => [...prev, message]);
+          
+          // Attendre un peu avant le message suivant
+          typewriterTimeoutRef.current = setTimeout(() => {
+            setCurrentMessageIndex(index + 1);
+            typeNextMessage(index + 1);
+          }, 800 + Math.random() * 1200); // Délai variable entre messages
+        }
+      };
+      
+      typeChar();
+    };
+    
+    // Démarrer avec un petit délai
+    typewriterTimeoutRef.current = setTimeout(() => typeNextMessage(0), 1000);
+  }, []);
+
+  const stopTypewriterAnimation = useCallback(() => {
+    if (typewriterTimeoutRef.current) {
+      clearTimeout(typewriterTimeoutRef.current);
+      typewriterTimeoutRef.current = null;
+    }
+    setIsTyping(false);
+  }, []);
+
+  // --- Fonction pour streamer l'interprétation du signal après l'analyse ---
+  const streamSignalInterpretation = useCallback(async (signalId: string) => {
+    console.log(`🎯 Démarrage du streaming de l'interprétation pour signal_id: ${signalId}`);
+    
+    // Vérifier que l'URL du webhook est définie
+    if (!ENV_GET_JOB_RESULT_WEBHOOK_URL) {
+      console.warn('⚠️ URL du webhook Get Job Result non définie. Streaming d\'interprétation désactivé.');
+      return;
+    }
+    
+    setIsStreamingInterpretation(true);
+    setInterpretationText('');
+    setInterpretationComplete(false);
+    setShowInterpretation(true);
+
+    try {
+      console.log(`📡 Appel du webhook: ${ENV_GET_JOB_RESULT_WEBHOOK_URL}`);
+      
+      const response = await fetch(ENV_GET_JOB_RESULT_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signal_id: signalId }),
+      });
+
+      console.log(`📊 Réponse du serveur: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}: ${errorText}`);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText || 'Le webhook n\'est pas accessible'}`);
+      }
+
+      // Vérifier si le streaming est supporté
+      if (!response.body) {
+        console.warn('⚠️ Le streaming n\'est pas supporté, tentative de lecture simple...');
+        const text = await response.text();
+        setInterpretationText(text);
+        setIsStreamingInterpretation(false);
+        setInterpretationComplete(true);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          console.log('✅ Streaming de l\'interprétation terminé');
+          setIsStreamingInterpretation(false);
+          setInterpretationComplete(true);
+          break;
+        }
+
+        // Décoder le chunk reçu
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+        
+        // Mettre à jour l'interface avec le texte accumulé
+        setInterpretationText(accumulatedText);
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur lors du streaming de l\'interprétation:', error);
+      setIsStreamingInterpretation(false);
+      
+      // Message d'erreur plus détaillé selon le type d'erreur
+      let errorMessage = 'Erreur lors de la récupération de l\'interprétation.';
+      
+      if (error.message.includes('404')) {
+        errorMessage = '❌ Le webhook d\'interprétation n\'est pas accessible (404). Vérifiez que le workflow "Get Job Result" est bien activé et que l\'URL est correcte.';
+      } else if (error.message.includes('Network')) {
+        errorMessage = '❌ Erreur réseau. Vérifiez votre connexion internet et l\'URL du webhook.';
+      } else {
+        errorMessage = `❌ ${error.message}`;
+      }
+      
+      setInterpretationText(errorMessage);
+      setShowInterpretation(true);
+    }
+  }, []);
+
+  // --- Fonction pour tester le streaming directement ---
+  const handleTestStreaming = useCallback(async () => {
+    if (!ENV_TEST_SIGNAL_ID || ENV_TEST_SIGNAL_ID.trim() === '') {
+      alert('❌ Aucun signal_id de test défini dans .env\n\nAjoutez EXPO_PUBLIC_TEST_SIGNAL_ID dans votre fichier .env');
+      return;
+    }
+    
+    if (!ENV_GET_JOB_RESULT_WEBHOOK_URL) {
+      alert('❌ L\'URL du webhook Get Job Result n\'est pas définie.\n\nAjoutez EXPO_PUBLIC_GET_JOB_RESULT_WEBHOOK_URL dans votre fichier .env');
+      return;
+    }
+    
+    console.log(`🧪 Test du streaming avec signal_id depuis .env: ${ENV_TEST_SIGNAL_ID}`);
+    
+    // Réinitialiser l'état de l'interprétation
+    setInterpretationText('');
+    setInterpretationComplete(false);
+    setIsStreamingInterpretation(false);
+    
+    // Basculer vers l'affichage des résultats
+    setShowAnalysis(true);
+    
+    // Démarrer le streaming de test
+    await streamSignalInterpretation(ENV_TEST_SIGNAL_ID);
+  }, [streamSignalInterpretation]);
 
   const resetAnalysisState = useCallback(() => {
     setIsLoading(false);
@@ -152,6 +402,14 @@ export default function AnalyseScreen() {
     setOverallStatus('pending');
     setError(null);
     setAnalysisResult(null);
+    setStreamingMessages([]);
+    setCurrentTypingMessage('');
+    setIsTyping(false);
+    setCurrentMessageIndex(0);
+    setIsStreamingInterpretation(false);
+    setInterpretationText('');
+    setInterpretationComplete(false);
+    setShowInterpretation(false);
     setAnalysisSteps((prevSteps) =>
       prevSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
     );
@@ -166,6 +424,10 @@ export default function AnalyseScreen() {
     if (realtimeRetryTimeoutRef.current) {
       clearTimeout(realtimeRetryTimeoutRef.current);
       realtimeRetryTimeoutRef.current = null;
+    }
+    if (typewriterTimeoutRef.current) {
+      clearTimeout(typewriterTimeoutRef.current);
+      typewriterTimeoutRef.current = null;
     }
     realtimeRetryCountRef.current = 0;
   }, []);
@@ -182,6 +444,9 @@ export default function AnalyseScreen() {
       prevSteps.map((step) => ({ ...step, status: 'pending', message: 'Démarrage...' })),
     );
     realtimeRetryCountRef.current = 0;
+    
+    // Démarrer l'animation typewriter du Signal Agent
+    startTypewriterAnimation();
 
     const now = new Date();
     const formattedTime = now.toISOString().slice(0, 16).replace('T', ' ');
@@ -309,6 +574,14 @@ export default function AnalyseScreen() {
         setAnalysisResult(newRecord.final_result);
         setShowAnalysis(true);
         setIsLoading(false);
+        stopTypewriterAnimation(); // Arrêter l'animation typewriter
+        
+        // Démarrer le streaming de l'interprétation avec le job_id
+        if (jobId) {
+          console.log('🎯 Démarrage du streaming de l\'interprétation pour jobId:', jobId);
+          streamSignalInterpretation(jobId);
+        }
+        
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
@@ -320,6 +593,7 @@ export default function AnalyseScreen() {
       } else if (newRecord.overall_status === 'failed') {
         console.log('Polling: Job failed!');
         setIsLoading(false);
+        stopTypewriterAnimation(); // Arrêter l'animation typewriter
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
@@ -397,6 +671,14 @@ export default function AnalyseScreen() {
             setAnalysisResult(newRecord.final_result);
             setShowAnalysis(true);
             setIsLoading(false);
+            stopTypewriterAnimation(); // Arrêter l'animation typewriter
+            
+            // Démarrer le streaming de l'interprétation avec le job_id
+            if (jobId) {
+              console.log('🎯 Démarrage du streaming de l\'interprétation pour jobId:', jobId);
+              streamSignalInterpretation(jobId);
+            }
+            
             if (realtimeChannelRef.current) {
               supabase.removeChannel(realtimeChannelRef.current);
               realtimeChannelRef.current = null;
@@ -408,6 +690,7 @@ export default function AnalyseScreen() {
           } else if (newRecord.overall_status === 'failed') {
             console.log('Realtime: Job failed!');
             setIsLoading(false);
+            stopTypewriterAnimation(); // Arrêter l'animation typewriter
             if (realtimeChannelRef.current) {
               supabase.removeChannel(realtimeChannelRef.current);
               realtimeChannelRef.current = null;
@@ -509,46 +792,84 @@ export default function AnalyseScreen() {
   }, [jobId, supabase, checkJobStatus, setupRealtimeChannel, overallStatus]);
 
   const renderLoadingAnimation = () => (
-    <View style={styles.fullScreenContainer}>
-      <View style={styles.loadingFixedHeader}>
-        <LottieView
-          source={require('../assets/animations/welcome.json')}
-          autoPlay
-          loop={true}
-          style={styles.lottieAnimation}
-        />
-        <Text style={styles.headerSubtitle}>
-          {overallStatus === 'failed' ? 'Analyse échouée' : 'Analyse en cours...'}
-        </Text>
-        {jobId && <Text style={styles.jobIdText}>ID de la tâche: {jobId}</Text>}
-        {error && <Text style={styles.errorText}>{error}</Text>}
+    <ScrollView 
+      style={styles.fullScreenContainer}
+      contentContainerStyle={styles.fullScreenContentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header avec informations de l'analyse */}
+      <View style={styles.loadingHeader}>
+        <View style={styles.loadingHeaderContent}>
+          <Text style={styles.loadingTitle}>
+            {overallStatus === 'failed' ? '❌ Analyse échouée' : '🤖 Signal Agent en action...'}
+          </Text>
+          {jobId && <Text style={styles.jobIdText}>ID de la tâche: {jobId}</Text>}
+          {error && <Text style={styles.errorText}>{error}</Text>}
+        </View>
         <TouchableOpacity style={styles.cancelButton} onPress={resetAnalysisState}>
           <Text style={styles.cancelButtonText}>Annuler l'Analyse</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView contentContainerStyle={styles.progressListContentContainer} style={styles.progressListScrollView}>
-        {analysisSteps.map((step) => (
-          <View key={step.id} style={styles.progressItem}>
-            <View style={styles.progressIconWrapper}>
-              {step.status === 'loading' && <ActivityIndicator size="small" color="#60A5FA" />}
-              {step.status === 'completed' && <CheckCircle size={18} color="#34D399" />}
-              {step.status === 'failed' && <XCircle size={18} color="#F87171" />}
-              {(step.status === 'idle' || step.status === 'pending') && <Clock size={18} color="#94A3B8" />}
-            </View>
-            <View style={styles.progressTextContent}>
-              <Text style={[styles.progressText, step.status === 'failed' && styles.progressTextError]}>
-                {step.label}
+      
+      {/* Section des messages typewriter du Signal Agent */}
+      <View style={styles.typewriterContainer}>
+        <Text style={styles.typewriterTitle}>🤖 Signal Agent</Text>
+        <ScrollView 
+          style={styles.typewriterScrollView}
+          contentContainerStyle={styles.typewriterContentContainer}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
+          {streamingMessages.map((message) => (
+            <View key={message.id} style={[styles.typewriterMessage, styles[`typewriterMessage_${message.type}`]]}>
+              <Text style={[styles.typewriterMessageText, styles[`typewriterMessageText_${message.type}`]]}>
+                {message.content}
               </Text>
-              {step.message && (
-                <Text style={[styles.progressMessage, step.status === 'failed' ? styles.progressErrorMessage : styles.progressSuccessMessage]}>
-                  {step.message}
-                </Text>
-              )}
             </View>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
+          ))}
+          {isTyping && currentTypingMessage && (
+            <View style={styles.typewriterMessage}>
+              <Text style={styles.typewriterMessageText}>
+                {currentTypingMessage}
+                <Text style={styles.typewriterCursor}>|</Text>
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+
+      {/* Section des étapes d'analyse */}
+      <View style={styles.stepsContainer}>
+        <Text style={styles.stepsTitle}>📋 Étapes d'Analyse</Text>
+        <ScrollView 
+          contentContainerStyle={styles.progressListContentContainer} 
+          style={styles.progressListScrollView}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
+          {analysisSteps.map((step) => (
+            <View key={step.id} style={styles.progressItem}>
+              <View style={styles.progressIconWrapper}>
+                {step.status === 'loading' && <ActivityIndicator size="small" color="#60A5FA" />}
+                {step.status === 'completed' && <CheckCircle size={18} color="#34D399" />}
+                {step.status === 'failed' && <XCircle size={18} color="#F87171" />}
+                {(step.status === 'idle' || step.status === 'pending') && <Clock size={18} color="#94A3B8" />}
+              </View>
+              <View style={styles.progressTextContent}>
+                <Text style={[styles.progressText, step.status === 'failed' && styles.progressTextError]}>
+                  {step.label}
+                </Text>
+                {step.message && (
+                  <Text style={[styles.progressMessage, step.status === 'failed' ? styles.progressErrorMessage : styles.progressSuccessMessage]}>
+                    {step.message}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </ScrollView>
   );
 
   const renderConfiguration = () => (
@@ -574,6 +895,39 @@ export default function AnalyseScreen() {
         {!useCustomWebhookUrl && (
           <Text style={[styles.webhookInfoText, { color: colors.textMuted }]}>Utilise l'URL définie dans les variables d'environnement.</Text>
         )}
+        
+        {/* Section de test du streaming */}
+        {ENV_TEST_SIGNAL_ID && (
+          <View style={styles.testStreamingSection}>
+            <Text style={[styles.testStreamingTitle, { color: colors.text }]}>🧪 Test du Streaming d'Interprétation</Text>
+            <Text style={[styles.testStreamingSubtitle, { color: colors.textMuted }]}>
+              Testez rapidement le webhook avec le signal_id configuré dans .env
+            </Text>
+            
+            <View style={styles.testStreamingInfoBox}>
+              <Text style={[styles.testStreamingInfoLabel, { color: colors.textMuted }]}>Signal ID de test :</Text>
+              <Text style={[styles.testStreamingInfoValue, { color: '#10B981' }]}>{ENV_TEST_SIGNAL_ID}</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.testStreamingButton, { backgroundColor: '#10B981' }]} 
+              onPress={handleTestStreaming}
+              disabled={isStreamingInterpretation}
+            >
+              {isStreamingInterpretation ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.testStreamingButtonText}>🧪 Lancer le Test</Text>
+              )}
+            </TouchableOpacity>
+            
+            {!ENV_GET_JOB_RESULT_WEBHOOK_URL && (
+              <Text style={[styles.testStreamingWarning, { color: '#F59E0B' }]}>
+                ⚠️ URL du webhook Get Job Result non définie dans .env
+              </Text>
+            )}
+          </View>
+        )}
       </CollapsibleSection>
 
       <SelectionSection title="Paire de Devises" options={MAJOR_PAIRS} selectedValue={pair} onSelect={setPair} />
@@ -581,10 +935,58 @@ export default function AnalyseScreen() {
       <SelectionSection title="Niveau de Risque" options={RISK_LEVELS} selectedValue={risk} onSelect={setRisk} />
       <SelectionSection title="Objectif de Gain" options={GAIN_LEVELS} selectedValue={gain} onSelect={setGain} />
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.primary }]} onPress={handleStartAnalysis} disabled={isLoading}>
-        {isLoading ? <ActivityIndicator color={colors.textOnPrimary} /> : <Text style={[styles.actionButtonText, { color: colors.textOnPrimary }]}>Lancer l'Analyse</Text>}
+        {isLoading ? <ActivityIndicator color="white" /> : <Text style={[styles.actionButtonText, { color: 'white' }]}>Lancer l'Analyse</Text>}
       </TouchableOpacity>
       {error && !showAnalysis && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
     </ScrollView>
+  );
+
+  // --- Rendu de l'interprétation streamée ---
+  const renderInterpretation = () => (
+    <View style={styles.interpretationContainer}>
+      <View style={styles.interpretationHeader}>
+        <Text style={styles.interpretationTitle}>🤖 Qubext - Interprétation du Signal</Text>
+        {isStreamingInterpretation && (
+          <View style={styles.streamingIndicator}>
+            <ActivityIndicator size="small" color="#60A5FA" />
+            <Text style={styles.streamingText}>Streaming en cours...</Text>
+          </View>
+        )}
+      </View>
+      <ScrollView 
+        style={styles.interpretationScrollView}
+        contentContainerStyle={styles.interpretationContentContainer}
+        showsVerticalScrollIndicator={true}
+      >
+        <Text style={styles.interpretationText}>
+          {interpretationText}
+          {isStreamingInterpretation && <Text style={styles.interpretationCursor}>▋</Text>}
+        </Text>
+        {interpretationComplete && (
+          <View style={styles.interpretationCompleteIndicator}>
+            <CheckCircle size={20} color="#34D399" />
+            <Text style={styles.interpretationCompleteText}>Interprétation complète</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+
+  // --- Bouton de retour à l'écran de configuration ---
+  const renderBackButton = () => (
+    <TouchableOpacity 
+      style={[styles.backButton, { backgroundColor: colors.primary }]} 
+      onPress={() => {
+        setShowAnalysis(false);
+        setShowInterpretation(false);
+        setInterpretationText('');
+        setInterpretationComplete(false);
+        setIsStreamingInterpretation(false);
+      }}
+    >
+      <ArrowLeft size={20} color="white" />
+      <Text style={styles.backButtonText}>Retour à la Configuration</Text>
+    </TouchableOpacity>
   );
 
   return (
@@ -605,7 +1007,17 @@ export default function AnalyseScreen() {
       />
       <BreadcrumbNavigation items={[{ label: 'Analysis', isActive: true }]} />
       <View style={{ flex: 1 }}>
-        {isLoading ? renderLoadingAnimation() : showAnalysis ? <AnalysisResultDisplay analysisResult={analysisResult} /> : renderConfiguration()}
+        {isLoading ? (
+          renderLoadingAnimation()
+        ) : showAnalysis ? (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
+            {renderBackButton()}
+            {showInterpretation && renderInterpretation()}
+            <AnalysisResultDisplay analysisResult={analysisResult} />
+          </ScrollView>
+        ) : (
+          renderConfiguration()
+        )}
       </View>
     </View>
   );
@@ -635,12 +1047,44 @@ const styles = StyleSheet.create({
   collapsibleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
   collapsibleTitle: { fontSize: 16, fontWeight: 'bold', color: 'white' },
   collapsibleContent: { paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)', paddingTop: 12 },
-  lottieAnimation: { width: 100, height: 100 },
-  
-  fullScreenContainer: { flex: 1, backgroundColor: '#0F172A' },
-  loadingFixedHeader: { alignItems: 'center', padding: 20, paddingBottom: 10, width: '100%' },
-  progressListScrollView: { flex: 1, width: '100%' },
-  progressListContentContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+  // --- Styles pour le nouveau layout avec scroll ---
+  fullScreenContainer: { 
+    flex: 1, 
+    backgroundColor: '#0F172A' 
+  },
+  fullScreenContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 100, // Espace pour éviter que le contenu soit caché par la barre de navigation
+  },
+  loadingHeader: {
+    backgroundColor: '#1E293B',
+    margin: 20,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 20,
+  },
+  loadingHeaderContent: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  loadingTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#E2E8F0',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  progressListScrollView: { 
+    maxHeight: 200, // Hauteur limitée pour les étapes
+    width: '100%' 
+  },
+  progressListContentContainer: { 
+    paddingHorizontal: 16, 
+    paddingTop: 10, 
+    paddingBottom: 20 
+  },
   progressItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   progressIconWrapper: { width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   progressTextContent: { flex: 1 },
@@ -682,6 +1126,70 @@ const styles = StyleSheet.create({
   },
   webhookToggleText: { color: 'white', marginLeft: 5, fontSize: 12, fontWeight: '600' },
   webhookInfoText: { color: '#94A3B8', fontSize: 12, marginTop: 5, paddingHorizontal: 5 },
+  
+  // --- Styles pour la section de test du streaming ---
+  testStreamingSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  testStreamingTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 5,
+  },
+  testStreamingSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  testStreamingInfoBox: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  testStreamingInfoLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginBottom: 4,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  testStreamingInfoValue: {
+    fontSize: 13,
+    color: '#10B981',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  testStreamingButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  testStreamingButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  testStreamingWarning: {
+    fontSize: 11,
+    color: '#F59E0B',
+    marginTop: 8,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
   cancelButton: {
     backgroundColor: '#F87171',
     borderRadius: 12,
@@ -696,5 +1204,205 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  
+  // --- Styles pour l'animation typewriter ---
+  typewriterContainer: {
+    backgroundColor: '#1E293B',
+    margin: 20,
+    marginTop: 0,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+    minHeight: 300, // Hauteur minimale pour le conteneur
+  },
+  typewriterTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#60A5FA',
+    textAlign: 'center',
+    padding: 16,
+    backgroundColor: '#334155',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  typewriterScrollView: {
+    maxHeight: 300, // Hauteur maximale pour permettre le scroll
+    paddingHorizontal: 16,
+  },
+  typewriterContentContainer: {
+    paddingVertical: 16,
+    paddingBottom: 20,
+  },
+  typewriterMessage: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#60A5FA',
+  },
+  typewriterMessage_info: {
+    borderLeftColor: '#60A5FA',
+    backgroundColor: '#1E3A8A',
+  },
+  typewriterMessage_analysis: {
+    borderLeftColor: '#F59E0B',
+    backgroundColor: '#451A03',
+  },
+  typewriterMessage_signal: {
+    borderLeftColor: '#10B981',
+    backgroundColor: '#064E3B',
+  },
+  typewriterMessage_warning: {
+    borderLeftColor: '#EF4444',
+    backgroundColor: '#7F1D1D',
+  },
+  typewriterMessage_success: {
+    borderLeftColor: '#34D399',
+    backgroundColor: '#064E3B',
+  },
+  typewriterMessageText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  typewriterMessageText_info: {
+    color: '#93C5FD',
+  },
+  typewriterMessageText_analysis: {
+    color: '#FCD34D',
+  },
+  typewriterMessageText_signal: {
+    color: '#6EE7B7',
+  },
+  typewriterMessageText_warning: {
+    color: '#FCA5A5',
+  },
+  typewriterMessageText_success: {
+    color: '#6EE7B7',
+  },
+  typewriterCursor: {
+    color: '#60A5FA',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  stepsContainer: {
+    backgroundColor: '#1E293B',
+    margin: 20,
+    marginTop: 0,
+    marginBottom: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+    minHeight: 200,
+  },
+  stepsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#94A3B8',
+    textAlign: 'center',
+    padding: 12,
+    backgroundColor: '#334155',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  
+  // --- Styles pour l'interprétation streamée ---
+  interpretationContainer: {
+    backgroundColor: '#1E293B',
+    margin: 20,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#60A5FA',
+    overflow: 'hidden',
+    shadowColor: '#60A5FA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  interpretationHeader: {
+    backgroundColor: '#334155',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  interpretationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#60A5FA',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  streamingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  streamingText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  interpretationScrollView: {
+    maxHeight: 400,
+  },
+  interpretationContentContainer: {
+    padding: 20,
+  },
+  interpretationText: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: '#E2E8F0',
+    textAlign: 'justify',
+  },
+  interpretationCursor: {
+    color: '#60A5FA',
+    fontWeight: 'bold',
+    fontSize: 20,
+    marginLeft: 2,
+  },
+  interpretationCompleteIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 8,
+  },
+  interpretationCompleteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#34D399',
+  },
+  
+  // --- Styles pour le bouton de retour ---
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#60A5FA',
+    borderRadius: 12,
+    padding: 14,
+    margin: 20,
+    marginBottom: 10,
+    shadowColor: '#60A5FA',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
