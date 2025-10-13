@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   TrendingUp,
   AlertTriangle,
+  FileText, // Added for the new summary section
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -29,7 +30,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // --- Reusable CollapsibleSection Component ---
 const CollapsibleSection = ({ title, children, icon: Icon, style, initialExpanded = false }: any) => {
   const [isExpanded, setIsExpanded] = useState(initialExpanded);
-  const { colors } = useTheme(); // Use theme colors here
+  const { colors } = useTheme();
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -51,7 +52,7 @@ const CollapsibleSection = ({ title, children, icon: Icon, style, initialExpande
 
 // --- Reusable KeyValueItem Component ---
 const KeyValueItem = ({ label, value }: { label: string; value: any }) => {
-  const { colors } = useTheme(); // Use theme colors here
+  const { colors } = useTheme();
   return (
     <View style={[styles.kvRow, { borderBottomColor: colors.border }]}>
       <Text style={[styles.kvLabel, { color: colors.textMuted }]}>{label}</Text>
@@ -62,7 +63,7 @@ const KeyValueItem = ({ label, value }: { label: string; value: any }) => {
 
 interface AnalysisResultDisplayProps {
   analysisResult: any;
-  onBackPress?: () => void; // Optional back button for history logs
+  onBackPress?: () => void;
 }
 
 export default function AnalysisResultDisplay({ analysisResult, onBackPress }: AnalysisResultDisplayProps) {
@@ -76,7 +77,6 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
     );
   }
 
-  // Helper to safely get nested values, providing 'N/A' if path is not found
   const getNestedValue = (obj: any, path: string, defaultValue: any = 'N/A') => {
     const parts = path.split('.');
     let current = obj;
@@ -89,16 +89,19 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
     return current;
   };
 
-  // Determine if the analysis has signals
   const hasSignals = getNestedValue(analysisResult, 'signals.length', 0) > 0;
   const signal = hasSignals ? analysisResult.signals[0] : null;
 
-  // Data can be in different places for fresh analysis vs. historical logs
   const metadata = analysisResult.signal_metadata || analysisResult.metadata_info;
   const marketValidation = analysisResult.market_validation;
   const marketAlerts = analysisResult.market_alerts;
   const noSignalAnalysis = analysisResult.no_signal_analysis;
-  const fundamentalContext = analysisResult.fundamental_context; // New: Get fundamental_context
+  const fundamentalContext = analysisResult.fundamental_context;
+  
+  // Define these for both signal and no-signal cases to provide summary info
+  const supportingAnalysis = analysisResult.supporting_analysis || (signal ? signal.supporting_analysis : null);
+  const riskWarnings = analysisResult.risk_warnings;
+
 
   return (
     <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: onBackPress ? 20 : 0 }]}>
@@ -132,7 +135,6 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
             </CollapsibleSection>
           )}
 
-          {/* New Section: Contexte Fondamental Détaillé */}
           {fundamentalContext && (
             <CollapsibleSection title="Contexte Fondamental Détaillé" icon={Info}>
               <KeyValueItem label="Facteur Principal" value={getNestedValue(fundamentalContext, 'facteur_principal')} />
@@ -260,18 +262,18 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
             </CollapsibleSection>
           )}
 
-          {getNestedValue(signal, 'supporting_analysis') && (
+          {supportingAnalysis && (
             <CollapsibleSection title="Analyse Détaillée" icon={Info}>
               <Text style={[styles.subHeader, { color: colors.text }]}>Résumé Price Action</Text>
-              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(signal, 'supporting_analysis.price_action_summary')}</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'price_action_summary')}</Text>
               <Text style={[styles.subHeader, { color: colors.text }]}>Résumé Technique</Text>
-              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(signal, 'supporting_analysis.technical_summary')}</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'technical_summary')}</Text>
               <Text style={[styles.subHeader, { color: colors.text }]}>Résumé SMC</Text>
-              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(signal, 'supporting_analysis.smc_summary')}</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'smc_summary')}</Text>
               <Text style={[styles.subHeader, { color: colors.text }]}>Évaluation du Risque</Text>
-              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(signal, 'supporting_analysis.risk_assessment')}</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'risk_assessment')}</Text>
               <Text style={[styles.subHeader, { color: colors.text }]}>Scénarios Alternatifs</Text>
-              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(signal, 'supporting_analysis.alternative_scenarios')}</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'alternative_scenarios')}</Text>
             </CollapsibleSection>
           )}
         </>
@@ -294,11 +296,10 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
           )}
 
           {metadata && (
-            <CollapsibleSection title="Métadonnées de l'Analyse" icon={Info} initialExpanded={true}>
+            <CollapsibleSection title="Métadonnées de l'Analyse" icon={Info}>
               <KeyValueItem label="Généré le" value={getNestedValue(metadata, 'generated_at') || getNestedValue(metadata, 'date')} />
               <KeyValueItem label="Version Agent" value={getNestedValue(metadata, 'agent_version')} />
               <KeyValueItem label="Session" value={getNestedValue(metadata, 'market_session')} />
-              {/* Additional metadata fields for no-signal cases */}
               <KeyValueItem label="Paire" value={getNestedValue(metadata, 'pair')} />
               <KeyValueItem label="Style" value={getNestedValue(metadata, 'style')} />
               <KeyValueItem label="Niveau de Risque" value={getNestedValue(metadata, 'risk')} />
@@ -307,7 +308,7 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
           )}
 
           {marketValidation && (
-            <CollapsibleSection title="Validation du Marché" icon={ShieldCheck} initialExpanded={true}>
+            <CollapsibleSection title="Validation du Marché" icon={ShieldCheck}>
               <KeyValueItem label="Alignement Price Action" value={getNestedValue(marketValidation, 'price_action_alignment')} />
               <KeyValueItem label="Score de Confluence" value={`${getNestedValue(marketValidation, 'overall_confluence_score', 0)} / 100`} />
               <KeyValueItem label="Qualité du Timing" value={getNestedValue(marketValidation, 'timing_quality')} />
@@ -317,7 +318,25 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
             </CollapsibleSection>
           )}
 
-          {/* New Section for No Signal: Contexte Fondamental Détaillé */}
+          {/* --- NEW SECTION FOR NO-SIGNAL: Analysis Summary Card --- */}
+          {supportingAnalysis && (
+            <CollapsibleSection title="Résumé de l'Analyse du Marché" icon={FileText} initialExpanded={true}>
+              <Text style={[styles.subHeader, { color: colors.text }]}>Résumé Price Action</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'price_action_summary')}</Text>
+              <Text style={[styles.subHeader, { color: colors.text }]}>Résumé Technique</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'technical_summary')}</Text>
+              <Text style={[styles.subHeader, { color: colors.text }]}>Résumé SMC</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'smc_summary')}</Text>
+              <Text style={[styles.subHeader, { color: colors.text }]}>Résumé Fondamental</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'fundamental_summary')}</Text>
+              <Text style={[styles.subHeader, { color: colors.text }]}>Évaluation du Risque</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'risk_assessment')}</Text>
+              <Text style={[styles.subHeader, { color: colors.text }]}>Scénarios Alternatifs</Text>
+              <Text style={[styles.listItem, { color: colors.textSecondary }]}>{getNestedValue(supportingAnalysis, 'alternative_scenarios')}</Text>
+            </CollapsibleSection>
+          )}
+          {/* --- END OF NEW SECTION --- */}
+
           {fundamentalContext && (
             <CollapsibleSection title="Contexte Fondamental Détaillé" icon={Info}>
               <KeyValueItem label="Facteur Principal" value={getNestedValue(fundamentalContext, 'facteur_principal')} />
@@ -356,6 +375,17 @@ export default function AnalysisResultDisplay({ analysisResult, onBackPress }: A
               ))}
             </CollapsibleSection>
           )}
+
+          {/* --- NEW SECTION FOR NO-SIGNAL: Risk Warnings --- */}
+          {riskWarnings && (
+            <CollapsibleSection title="Avertissements de Risque" icon={AlertTriangle}>
+              <KeyValueItem label="Risque Événementiel" value={getNestedValue(riskWarnings, 'event_risk')} />
+              <KeyValueItem label="Risque de Liquidité" value={getNestedValue(riskWarnings, 'liquidity_risk')} />
+              <KeyValueItem label="Risque de Corrélation" value={getNestedValue(riskWarnings, 'correlation_risk')} />
+              <KeyValueItem label="Risque de Sentiment" value={getNestedValue(riskWarnings, 'sentiment_risk')} />
+            </CollapsibleSection>
+          )}
+          {/* --- END OF NEW SECTION --- */}
         </>
       )}
     </ScrollView>
@@ -389,7 +419,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)', // Default border for BlurView
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   collapsibleHeader: {
     flexDirection: 'row',
@@ -405,7 +435,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)', // Default border for BlurView
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     paddingTop: 12,
   },
   kvRow: {
@@ -413,7 +443,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    // borderBottomColor will be set by theme colors
   },
   kvLabel: {
     fontSize: 14,
@@ -437,12 +466,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   sellSignal: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)', // Red background
-    color: '#F87171', // Red text
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#F87171',
   },
   buySignal: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)', // Green background
-    color: '#34D399', // Green text
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    color: '#34D399',
   },
   signalConfidence: {
     fontSize: 18,
@@ -460,11 +489,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   eventItem: {
-    marginBottom: 8, // Add some spacing between events
+    marginBottom: 8,
   },
   nestedCollapsible: {
     marginTop: 10,
-    // background and border color will be set by theme colors with opacity
   },
   backButton: {
     alignSelf: 'flex-start',
