@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'; // Ajout de useRef
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ScrollView,
   TouchableOpacity,
@@ -16,22 +16,23 @@ import BreadcrumbNavigation from '@/components/BreadcrumbNavigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BlurView } from 'expo-blur';
 import {
-  ChevronDown,
-  ChevronUp,
   ToggleLeft,
   ToggleRight,
-  Info,
-  ShieldCheck,
-  TrendingUp,
-  AlertTriangle,
+  Info, // Keep Info if used elsewhere in this file, otherwise remove
+  ShieldCheck, // Keep ShieldCheck if used elsewhere in this file, otherwise remove
+  TrendingUp, // Keep TrendingUp if used elsewhere in this file, otherwise remove
+  AlertTriangle, // Keep AlertTriangle if used elsewhere in this file, otherwise remove
   CheckCircle,
   XCircle,
   Clock,
   Settings,
+  ChevronDown, // Keep for local CollapsibleSection
+  ChevronUp,    // Keep for local CollapsibleSection
 } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from '../../lib/supabase'; // <-- Importez l'instance centralisée
+import { supabase } from '../../lib/supabase';
+import AnalysisResultDisplay from '@/components/AnalysisResultDisplay'; // Import the new component
 
 // --- Configuration Supabase et Webhook depuis les variables d'environnement ---
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -68,9 +69,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// --- Composant Section Déroulante (CollapsibleSection) ---
+// --- Composant Section Déroulante (CollapsibleSection) - KEPT LOCALLY FOR CONFIGURATION ONLY ---
+// This version is simpler as it doesn't need to be as flexible as the one in AnalysisResultDisplay
 const CollapsibleSection = ({ title, children, icon: Icon, style }: any) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { colors } = useTheme(); // Use theme colors here
+
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded(!isExpanded);
@@ -80,36 +84,31 @@ const CollapsibleSection = ({ title, children, icon: Icon, style }: any) => {
       <TouchableOpacity onPress={toggleExpand} style={styles.collapsibleHeader}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {Icon && <Icon size={18} color="#94A3B8" style={{ marginRight: 10 }} />}
-          <Text style={styles.collapsibleTitle}>{title}</Text>
+          <Text style={[styles.collapsibleTitle, { color: colors.text }]}>{title}</Text>
         </View>
-        {isExpanded ? <ChevronUp size={20} color="#60A5FA" /> : <ChevronDown size={20} color="#94A3B8" />}
+        {isExpanded ? <ChevronUp size={20} color={colors.primary} /> : <ChevronDown size={20} color={colors.textMuted} />}
       </TouchableOpacity>
       {isExpanded && <View style={styles.collapsibleContent}>{children}</View>}
     </BlurView>
   );
 };
 
-// --- Composant pour afficher une ligne clé-valeur ---
-const KeyValueItem = ({ label, value }: { label: string; value: any }) => (
-  <View style={styles.kvRow}>
-    <Text style={styles.kvLabel}>{label}</Text>
-    <Text style={styles.kvValue}>{String(value)}</Text>
-  </View>
-);
-
 // --- Composant utilitaire pour la sélection ---
-const SelectionSection = ({ title, options, selectedValue, onSelect }: any) => (
-  <View style={styles.section}>
-    <Text style={styles.label}>{title}</Text>
-    <View style={styles.tagContainer}>
-      {options.map((option: string) => (
-        <TouchableOpacity key={option} style={[styles.tag, selectedValue === option && styles.tagSelected]} onPress={() => onSelect(option)}>
-          <Text style={[styles.tagText, selectedValue === option && styles.tagTextSelected]}>{option}</Text>
-        </TouchableOpacity>
-      ))}
+const SelectionSection = ({ title, options, selectedValue, onSelect }: any) => {
+  const { colors } = useTheme(); // Use theme colors here
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.label, { color: colors.text }]}>{title}</Text>
+      <View style={styles.tagContainer}>
+        {options.map((option: string) => (
+          <TouchableOpacity key={option} style={[styles.tag, selectedValue === option && styles.tagSelected, { borderColor: colors.border }]} onPress={() => onSelect(option)}>
+            <Text style={[styles.tagText, selectedValue === option && styles.tagTextSelected, { color: selectedValue === option ? colors.textOnPrimary : colors.text }]}>{option}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 // --- Composant principal de l'écran Analyse ---
 export default function AnalyseScreen() {
@@ -136,17 +135,15 @@ export default function AnalyseScreen() {
     { id: 'final_processing', label: 'Traitement final', status: 'idle', message: 'En attente...' },
   ]);
 
-  // --- NOUVEAUX ÉTATS POUR LA CONFIGURATION DU WEBHOOK ---
   const [customWebhookUrl, setCustomWebhookUrl] = useState(ENV_MAESTRO_WEBHOOK_URL);
   const [useCustomWebhookUrl, setUseCustomWebhookUrl] = useState(false);
 
-  // --- Refs pour gérer le Realtime et le Polling ---
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const realtimeRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const realtimeRetryCountRef = useRef(0);
-  const MAX_REALTIME_RETRIES = 3; // Nombre maximal de tentatives de reconnexion Realtime
-  const POLLING_FREQUENCY_MS = 10000; // Fréquence de polling en ms (10 secondes)
+  const MAX_REALTIME_RETRIES = 3;
+  const POLLING_FREQUENCY_MS = 10000;
 
   const resetAnalysisState = useCallback(() => {
     setIsLoading(false);
@@ -158,7 +155,6 @@ export default function AnalyseScreen() {
     setAnalysisSteps((prevSteps) =>
       prevSteps.map((step) => ({ ...step, status: 'idle', message: 'En attente...' })),
     );
-    // Nettoyer les ressources Realtime/Polling lors de la réinitialisation
     if (realtimeChannelRef.current) {
       supabase.removeChannel(realtimeChannelRef.current);
       realtimeChannelRef.current = null;
@@ -185,12 +181,11 @@ export default function AnalyseScreen() {
     setAnalysisSteps((prevSteps) =>
       prevSteps.map((step) => ({ ...step, status: 'pending', message: 'Démarrage...' })),
     );
-    realtimeRetryCountRef.current = 0; // Réinitialiser le compteur de retries
+    realtimeRetryCountRef.current = 0;
 
     const now = new Date();
     const formattedTime = now.toISOString().slice(0, 16).replace('T', ' ');
     
-    // --- Récupération de l'access_token Supabase ---
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     let accessToken: string | null = null;
 
@@ -218,14 +213,13 @@ export default function AnalyseScreen() {
       return;
     }
 
-    // --- Payload incluant l'access_token ---
     const payload = { 
       pair, 
       style, 
       risk, 
       gain, 
       time: formattedTime,
-      accessToken: accessToken, // <-- Ajout de l'access_token ici pour n8n
+      accessToken: accessToken,
     };
     
     const maestroWebhookUrl = useCustomWebhookUrl ? customWebhookUrl : ENV_MAESTRO_WEBHOOK_URL;
@@ -261,7 +255,6 @@ export default function AnalyseScreen() {
       }
 
       setJobId(receivedJobId);
-      // Mettre à jour la première étape à loading puisque la requête a été envoyée
       setAnalysisSteps((prevSteps) =>
         prevSteps.map((step) =>
           step.id === 'security_check' ? { ...step, status: 'loading', message: 'Envoi de la demande...' } : step
@@ -279,7 +272,6 @@ export default function AnalyseScreen() {
     }
   };
 
-  // --- Fonction pour vérifier le statut de la tâche via polling ---
   const checkJobStatus = useCallback(async () => {
     if (!jobId) return;
 
@@ -292,7 +284,6 @@ export default function AnalyseScreen() {
 
     if (dbError) {
       console.error('Error fetching job status via polling:', dbError);
-      // Ne pas arrêter le polling immédiatement, l'erreur pourrait être temporaire
       setError(`Erreur de récupération du statut (polling): ${dbError.message || 'Inconnu'}`);
       return;
     }
@@ -300,7 +291,7 @@ export default function AnalyseScreen() {
     if (data) {
       const newRecord = data as any;
       setOverallStatus(newRecord.overall_status);
-      setError(newRecord.error_message); // Mettre à jour l'erreur si n8n en a envoyé une
+      setError(newRecord.error_message);
 
       if (newRecord.steps_status) {
         setAnalysisSteps((prevSteps) =>
@@ -322,7 +313,6 @@ export default function AnalyseScreen() {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
         }
-        // S'assurer que le canal Realtime est aussi nettoyé si jamais il était actif
         if (realtimeChannelRef.current) {
           supabase.removeChannel(realtimeChannelRef.current);
           realtimeChannelRef.current = null;
@@ -340,11 +330,9 @@ export default function AnalyseScreen() {
         }
       }
     }
-  }, [jobId, supabase]); // Dépend de jobId et supabase
+  }, [jobId, supabase]);
 
-  // --- Fonction pour démarrer le polling ---
   const startPolling = useCallback(async () => {
-    // Nettoyer toute instance Realtime si le polling prend le relais
     if (realtimeChannelRef.current) {
       supabase.removeChannel(realtimeChannelRef.current);
       realtimeChannelRef.current = null;
@@ -357,21 +345,18 @@ export default function AnalyseScreen() {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
-    // Effectuer une vérification immédiate avant de démarrer l'intervalle
     await checkJobStatus();
-    if (overallStatus !== 'completed' && overallStatus !== 'failed') { // Vérifier l'état après la vérification immédiate
+    if (overallStatus !== 'completed' && overallStatus !== 'failed') {
       pollingIntervalRef.current = setInterval(checkJobStatus, POLLING_FREQUENCY_MS);
       console.log(`Polling started for jobId: ${jobId} every ${POLLING_FREQUENCY_MS / 1000}s`);
     } else {
       console.log('Job already finished during initial polling check, no need to start interval.');
     }
-  }, [jobId, checkJobStatus, overallStatus]); // overallStatus est une dépendance ici pour la vérification initiale
+  }, [jobId, checkJobStatus, overallStatus]);
 
-  // --- Fonction pour configurer le canal Realtime ---
   const setupRealtimeChannel = useCallback(() => {
     if (!jobId) return;
 
-    // S'assurer qu'un ancien canal est nettoyé avant d'en créer un nouveau
     if (realtimeChannelRef.current) {
       supabase.removeChannel(realtimeChannelRef.current);
     }
@@ -416,7 +401,6 @@ export default function AnalyseScreen() {
               supabase.removeChannel(realtimeChannelRef.current);
               realtimeChannelRef.current = null;
             }
-            // S'assurer que le polling est arrêté si Realtime réussit et termine le job
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
@@ -438,12 +422,11 @@ export default function AnalyseScreen() {
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
             console.log(`Successfully SUBSCRIBED to channel job_updates_${jobId}`);
-            realtimeRetryCountRef.current = 0; // Réinitialiser le compteur de retries sur succès
+            realtimeRetryCountRef.current = 0;
             if (realtimeRetryTimeoutRef.current) {
               clearTimeout(realtimeRetryTimeoutRef.current);
               realtimeRetryTimeoutRef.current = null;
             }
-            // Si le polling était actif, l'arrêter car Realtime fonctionne
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
@@ -454,7 +437,7 @@ export default function AnalyseScreen() {
 
             if (realtimeRetryCountRef.current < MAX_REALTIME_RETRIES) {
               realtimeRetryCountRef.current++;
-              const delay = Math.pow(2, realtimeRetryCountRef.current) * 1000; // Backoff exponentiel
+              const delay = Math.pow(2, realtimeRetryCountRef.current) * 1000;
               console.log(`Retrying Realtime subscription in ${delay / 1000} seconds. Attempt ${realtimeRetryCountRef.current}/${MAX_REALTIME_RETRIES}`);
               realtimeRetryTimeoutRef.current = setTimeout(setupRealtimeChannel, delay);
               setAnalysisSteps((prevSteps) => prevSteps.map(step =>
@@ -467,15 +450,14 @@ export default function AnalyseScreen() {
               setAnalysisSteps((prevSteps) => prevSteps.map(step =>
                 step.id === 'security_check' ? { ...step, status: 'loading', message: errorMessage } : step
               ));
-              startPolling(); // Démarrer le polling comme solution de repli
+              startPolling();
             }
         }
     });
-  }, [jobId, supabase, startPolling]); // Dépend de jobId, supabase et startPolling
+  }, [jobId, supabase, startPolling]);
 
   useEffect(() => {
     if (!jobId) {
-      // Si jobId est null, s'assurer que tout est nettoyé
       if (realtimeChannelRef.current) {
         supabase.removeChannel(realtimeChannelRef.current);
         realtimeChannelRef.current = null;
@@ -492,16 +474,11 @@ export default function AnalyseScreen() {
       return;
     }
 
-    // Lors du montage ou changement de jobId
-    // D'abord, vérifier l'état actuel du job via polling au cas où n8n l'aurait déjà terminé
-    // avant que Realtime ne se connecte ou si Realtime échoue
     checkJobStatus().then(() => {
-      // Seulement démarrer Realtime/Polling si le job n'est pas déjà terminé/échoué
       if (overallStatus !== 'completed' && overallStatus !== 'failed') {
         setupRealtimeChannel();
       } else {
         console.log('Job already completed/failed on initial check, skipping Realtime/polling setup.');
-        // Assurez-vous que le Realtime/Polling est nettoyé même si la vérification initiale a trouvé le job terminé
         if (realtimeChannelRef.current) {
           supabase.removeChannel(realtimeChannelRef.current);
           realtimeChannelRef.current = null;
@@ -513,7 +490,6 @@ export default function AnalyseScreen() {
       }
     });
 
-    // Fonction de nettoyage pour le démontage ou le changement de jobId
     return () => {
       console.log(`Cleaning up for jobId: ${jobId}`);
       if (realtimeChannelRef.current) {
@@ -528,9 +504,9 @@ export default function AnalyseScreen() {
         clearTimeout(realtimeRetryTimeoutRef.current);
         realtimeRetryTimeoutRef.current = null;
       }
-      realtimeRetryCountRef.current = 0; // Réinitialiser le compteur de retries pour la prochaine fois
+      realtimeRetryCountRef.current = 0;
     };
-  }, [jobId, supabase, checkJobStatus, setupRealtimeChannel, overallStatus]); // overallStatus est une dépendance pour la vérification initiale
+  }, [jobId, supabase, checkJobStatus, setupRealtimeChannel, overallStatus]);
 
   const renderLoadingAnimation = () => (
     <View style={styles.fullScreenContainer}>
@@ -577,26 +553,26 @@ export default function AnalyseScreen() {
 
   const renderConfiguration = () => (
     <ScrollView contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.headerTitle}>Configuration de l'Analyse</Text>
-      <Text style={styles.headerSubtitle}>Définissez les critères pour l'analyse de l'IA.</Text>
+      <Text style={[styles.headerTitle, { color: colors.text }]}>Configuration de l'Analyse</Text>
+      <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Définissez les critères pour l'analyse de l'IA.</Text>
 
       <CollapsibleSection title="Configuration Webhook" icon={Settings} style={styles.webhookConfigSection}>
         <View style={styles.webhookInputContainer}>
           <TextInput
-            style={[styles.webhookInput, !useCustomWebhookUrl && styles.webhookInputDisabled]}
+            style={[styles.webhookInput, !useCustomWebhookUrl && styles.webhookInputDisabled, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
             value={customWebhookUrl}
             onChangeText={setCustomWebhookUrl}
             placeholder="Entrez l'URL du webhook..."
             editable={useCustomWebhookUrl}
-            placeholderTextColor="#64748B"
+            placeholderTextColor={colors.textMuted}
           />
-          <TouchableOpacity onPress={() => setUseCustomWebhookUrl(!useCustomWebhookUrl)} style={styles.webhookToggle}>
-            {useCustomWebhookUrl ? <ToggleRight size={24} color="#60A5FA" /> : <ToggleLeft size={24} color="#94A3B8" />}
-            <Text style={styles.webhookToggleText}>{useCustomWebhookUrl ? 'Custom' : 'Env Var'}</Text>
+          <TouchableOpacity onPress={() => setUseCustomWebhookUrl(!useCustomWebhookUrl)} style={[styles.webhookToggle, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+            {useCustomWebhookUrl ? <ToggleRight size={24} color={colors.primary} /> : <ToggleLeft size={24} color={colors.textMuted} />}
+            <Text style={[styles.webhookToggleText, { color: colors.text }]}>{useCustomWebhookUrl ? 'Custom' : 'Env Var'}</Text>
           </TouchableOpacity>
         </View>
         {!useCustomWebhookUrl && (
-          <Text style={styles.webhookInfoText}>Utilise l'URL définie dans les variables d'environnement.</Text>
+          <Text style={[styles.webhookInfoText, { color: colors.textMuted }]}>Utilise l'URL définie dans les variables d'environnement.</Text>
         )}
       </CollapsibleSection>
 
@@ -604,223 +580,15 @@ export default function AnalyseScreen() {
       <SelectionSection title="Style de Trading" options={TRADING_STYLES} selectedValue={style} onSelect={setStyle} />
       <SelectionSection title="Niveau de Risque" options={RISK_LEVELS} selectedValue={risk} onSelect={setRisk} />
       <SelectionSection title="Objectif de Gain" options={GAIN_LEVELS} selectedValue={gain} onSelect={setGain} />
-      <TouchableOpacity style={styles.actionButton} onPress={handleStartAnalysis} disabled={isLoading}>
-        {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.actionButtonText}>Lancer l'Analyse</Text>}
+      <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.primary }]} onPress={handleStartAnalysis} disabled={isLoading}>
+        {isLoading ? <ActivityIndicator color={colors.textOnPrimary} /> : <Text style={[styles.actionButtonText, { color: colors.textOnPrimary }]}>Lancer l'Analyse</Text>}
       </TouchableOpacity>
-      {error && !showAnalysis && <Text style={styles.errorText}>{error}</Text>}
+      {error && !showAnalysis && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
     </ScrollView>
   );
 
-  const renderAnalysis = () => {
-    if (error) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      );
-    }
-    if (!analysisResult) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.headerSubtitle}>Aucun résultat à afficher.</Text>
-        </View>
-      );
-    }
-
-    if (!analysisResult.signals || analysisResult.signals.length === 0) {
-      const noSignal = analysisResult.no_signal_analysis;
-      const marketAlerts = analysisResult.market_alerts;
-
-      return (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.headerTitle}>Analyse Sans Signal</Text>
-          <Text style={styles.headerSubtitle}>
-            L'IA n'a pas trouvé de configuration de trading à haute probabilité pour le moment.
-          </Text>
-
-          {noSignal && noSignal.reasons_if_no_signal && noSignal.reasons_if_no_signal.length > 0 && (
-            <CollapsibleSection title="Raisons de l'absence de signal" icon={Info}>
-              {noSignal.reasons_if_no_signal.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>
-                  • {item}
-                </Text>
-              ))}
-              <KeyValueItem label="Prochaine Évaluation" value={noSignal.next_evaluation} />
-            </CollapsibleSection>
-          )}
-
-          {analysisResult.signal_metadata && (
-             <CollapsibleSection title="Métadonnées de l'Analyse" icon={Info}>
-                <KeyValueItem label="Généré le" value={analysisResult.signal_metadata.generated_at} />
-                <KeyValueItem label="Version Agent" value={analysisResult.signal_metadata.agent_version} />
-                <KeyValueItem label="Session" value={analysisResult.signal_metadata.market_session} />
-            </CollapsibleSection>
-          )}
-
-          {analysisResult.market_validation && (
-            <CollapsibleSection title="Validation du Marché" icon={ShieldCheck}>
-              <KeyValueItem label="Alignement Price Action" value={analysisResult.market_validation.price_action_alignment} />
-              <KeyValueItem label="Score de Confluence" value={`${analysisResult.market_validation.overall_confluence_score} / 100`} />
-              <KeyValueItem label="Qualité du Timing" value={`${analysisResult.market_validation.timing_quality}`} />
-            </CollapsibleSection>
-          )}
-
-          {marketAlerts && (
-            <CollapsibleSection title="Alertes Marché" icon={AlertTriangle}>
-              <Text style={styles.subHeader}>Actualités à fort impact (24h)</Text>
-              {marketAlerts.high_impact_news_next_24h.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>
-                  • {item}
-                </Text>
-              ))}
-              <Text style={styles.subHeader}>Niveaux techniques à surveiller</Text>
-              {marketAlerts.technical_levels_to_watch.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>
-                  • {item}
-                </Text>
-              ))}
-            </CollapsibleSection>
-          )}
-        </ScrollView>
-      );
-    }
-
-    const signal = analysisResult.signals[0];
-
-    return (
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.headerTitle}>Résultat de l'Analyse</Text>
-        <Text style={styles.headerSubtitle}>Signal pour {signal.signal_id.replace(/_/g, ' ')}</Text>
-
-        <CollapsibleSection title="Métadonnées du Signal" icon={Info}>
-          <KeyValueItem label="Généré le" value={analysisResult.signal_metadata.generated_at} />
-          <KeyValueItem label="Version Agent" value={analysisResult.signal_metadata.agent_version} />
-          <KeyValueItem label="Session" value={analysisResult.signal_metadata.market_session} />
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Validation du Marché" icon={ShieldCheck}>
-          <KeyValueItem label="Alignement Price Action" value={analysisResult.market_validation.price_action_alignment} />
-          <KeyValueItem label="Score de Confluence" value={`${analysisResult.market_validation.overall_confluence_score} / 100`} />
-          <KeyValueItem label="Qualité du Timing" value={`${analysisResult.market_validation.timing_quality}`} />
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Signal Principal" icon={TrendingUp}>
-          <View style={styles.signalMainInfo}>
-            <Text style={[styles.signalType, signal.signal === 'SELL' ? styles.sellSignal : styles.buySignal]}>
-              {signal.signal}
-            </Text>
-            <Text style={styles.signalConfidence}>{signal.confidence}</Text>
-          </View>
-          <KeyValueItem label="Prix d'entrée" value={signal.entry_details.entry_price} />
-          <KeyValueItem label="Méthode d'entrée" value={signal.entry_details.entry_method} />
-          <KeyValueItem label="Slippage Max" value={signal.entry_details.max_slippage} />
-          <KeyValueItem label="Stop Loss" value={signal.risk_management.stop_loss} />
-          <KeyValueItem label="Take Profit 1" value={signal.risk_management.take_profit_1} />
-          <KeyValueItem label="Take Profit 2" value={signal.risk_management.take_profit_2} />
-          <KeyValueItem label="Take Profit 3" value={signal.risk_management.take_profit_3} />
-          <KeyValueItem label="Ratio R/R" value={signal.risk_management.risk_reward_ratio} />
-          <KeyValueItem label="Time Frame Exécution" value={signal.entry_details.execution_timeframe} />
-
-          {signal.entry_conditions && (
-            <CollapsibleSection title="Conditions d'Entrée" icon={Info} style={styles.nestedCollapsible}>
-              {signal.entry_conditions.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>• {item}</Text>
-              ))}
-            </CollapsibleSection>
-          )}
-
-          {signal.invalidation_rules && (
-            <CollapsibleSection title="Règles d'Invalidation" icon={AlertTriangle} style={styles.nestedCollapsible}>
-              {signal.invalidation_rules.map((item: string, index: number) => (
-                <Text key={index} style={styles.listItem}>• {item}</Text>
-              ))}
-            </CollapsibleSection>
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Alertes Marché" icon={AlertTriangle}>
-          <Text style={styles.subHeader}>Actualités à fort impact (24h)</Text>
-          {analysisResult.market_alerts.high_impact_news_next_24h.map((item: string, index: number) => (
-            <Text key={index} style={styles.listItem}>• {item}</Text>
-          ))}
-          <Text style={styles.subHeader}>Niveaux techniques à surveiller</Text>
-          {analysisResult.market_alerts.technical_levels_to_watch.map((item: string, index: number) => (
-            <Text key={index} style={styles.listItem}>• {item}</Text>
-          ))}
-        </CollapsibleSection>
-
-        {signal.performance_metrics && (
-          <CollapsibleSection title="Métriques de Performance" icon={TrendingUp}>
-            <KeyValueItem label="Pips Gain Min" value={signal.performance_metrics.pips_gain_min} />
-            <KeyValueItem label="Pips Gain Max" value={signal.performance_metrics.pips_gain_max} />
-            <KeyValueItem label="Pips Risque" value={signal.performance_metrics.pips_risk} />
-            <KeyValueItem label="Probabilité de Gain" value={signal.performance_metrics.win_probability_estimated} />
-            <KeyValueItem label="Valeur Attendue" value={signal.performance_metrics.expected_value} />
-          </CollapsibleSection>
-        )}
-
-        {signal.validation_checks && (
-          <CollapsibleSection title="Vérifications de Validation" icon={ShieldCheck}>
-            <Text style={styles.subHeader}>Confluence Price Action</Text>
-            {signal.validation_checks.price_action_confluence.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>• {item}</Text>
-            ))}
-            <Text style={styles.subHeader}>Confluence SMC</Text>
-            {signal.validation_checks.smc_confluence.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>• {item}</Text>
-            ))}
-            <Text style={styles.subHeader}>Indicateurs Techniques</Text>
-            {signal.validation_checks.technical_indicators.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>• {item}</Text>
-            ))}
-            <Text style={styles.subHeader}>Facteurs de Timing</Text>
-            {signal.validation_checks.timing_factors.map((item: string, index: number) => (
-              <Text key={index} style={styles.listItem}>• {item}</Text>
-            ))}
-          </CollapsibleSection>
-        )}
-
-        {signal.market_context && (
-          <CollapsibleSection title="Contexte du Marché" icon={Info}>
-            <KeyValueItem label="Alignement Tendance" value={signal.market_context.trend_alignment} />
-            <KeyValueItem label="Volatilité" value={signal.market_context.volatility_environment} />
-            <KeyValueItem label="Risque News (4h)" value={signal.market_context.news_risk_next_4h} />
-            <KeyValueItem label="Caractéristiques Session" value={signal.market_context.session_characteristics} />
-          </CollapsibleSection>
-        )}
-
-        {signal.execution_plan && (
-          <CollapsibleSection title="Plan d'Exécution" icon={TrendingUp}>
-            <KeyValueItem label="Fenêtre d'entrée optimale" value={signal.execution_plan.optimal_entry_window} />
-            <Text style={styles.subHeader}>Prise de Profits Partielle</Text>
-            <KeyValueItem label="TP1 Exit" value={signal.execution_plan.partial_profit_taking.tp1_exit} />
-            <KeyValueItem label="TP2 Exit" value={signal.execution_plan.partial_profit_taking.tp2_exit} />
-            <KeyValueItem label="TP3 Exit" value={signal.execution_plan.partial_profit_taking.tp3_exit} />
-            <KeyValueItem label="Stop Suiveur" value={signal.execution_plan.trailing_stop} />
-            <KeyValueItem label="Monitoring Position" value={signal.execution_plan.position_monitoring} />
-          </CollapsibleSection>
-        )}
-
-        {signal.supporting_analysis && (
-          <CollapsibleSection title="Analyse Détaillée" icon={Info}>
-            <Text style={styles.subHeader}>Résumé Price Action</Text>
-            <Text style={styles.listItem}>{signal.supporting_analysis.price_action_summary}</Text>
-            <Text style={styles.subHeader}>Résumé Technique</Text>
-            <Text style={styles.listItem}>{signal.supporting_analysis.technical_summary}</Text>
-            <Text style={styles.subHeader}>Résumé SMC</Text>
-            <Text style={styles.listItem}>{signal.supporting_analysis.smc_summary}</Text>
-            <Text style={styles.subHeader}>Évaluation du Risque</Text>
-            <Text style={styles.listItem}>{signal.supporting_analysis.risk_assessment}</Text>
-            <Text style={styles.subHeader}>Scénarios Alternatifs</Text>
-            <Text style={styles.listItem}>{signal.supporting_analysis.alternative_scenarios}</Text>
-          </CollapsibleSection>
-        )}
-      </ScrollView>
-    );
-  };
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <NavigationHeader
         title="Analyse de Marché"
         subtitle={isLoading ? "Statut de l'Analyse" : showAnalysis ? "Résultats de l'IA" : 'Configuration manuelle'}
@@ -837,7 +605,7 @@ export default function AnalyseScreen() {
       />
       <BreadcrumbNavigation items={[{ label: 'Analysis', isActive: true }]} />
       <View style={{ flex: 1 }}>
-        {isLoading ? renderLoadingAnimation() : showAnalysis ? renderAnalysis() : renderConfiguration()}
+        {isLoading ? renderLoadingAnimation() : showAnalysis ? <AnalysisResultDisplay analysisResult={analysisResult} /> : renderConfiguration()}
       </View>
     </View>
   );
@@ -867,9 +635,6 @@ const styles = StyleSheet.create({
   collapsibleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
   collapsibleTitle: { fontSize: 16, fontWeight: 'bold', color: 'white' },
   collapsibleContent: { paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)', paddingTop: 12 },
-  kvRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#334155' },
-  kvLabel: { color: '#94A3B8', fontSize: 14 },
-  kvValue: { color: 'white', fontSize: 14, fontWeight: '600' },
   lottieAnimation: { width: 100, height: 100 },
   
   fullScreenContainer: { flex: 1, backgroundColor: '#0F172A' },
@@ -886,15 +651,6 @@ const styles = StyleSheet.create({
   progressErrorMessage: { color: '#F87171' },
   jobIdText: { color: '#CBD5E1', fontSize: 12, marginTop: 10, marginBottom: 20 },
   
-  signalMainInfo: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 10, marginBottom: 10 },
-  signalType: { fontSize: 24, fontWeight: 'bold', paddingHorizontal: 20, paddingVertical: 5, borderRadius: 10 },
-  sellSignal: { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171' },
-  buySignal: { backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34D399' },
-  signalConfidence: { fontSize: 18, color: '#FBBF24', fontWeight: '700' },
-  subHeader: { fontSize: 15, fontWeight: 'bold', color: '#E2E8F0', marginTop: 10, marginBottom: 5 },
-  listItem: { color: '#CBD5E1', fontSize: 14, paddingLeft: 8, marginBottom: 4 },
-  nestedCollapsible: { marginTop: 10, backgroundColor: 'rgba(30, 41, 59, 0.7)', borderColor: 'rgba(255, 255, 255, 0.05)' },
-
   webhookConfigSection: { marginBottom: 20 },
   webhookInputContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   webhookInput: {
