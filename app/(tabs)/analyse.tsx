@@ -286,6 +286,132 @@ export default function AnalyseScreen() {
     setIsTyping(false);
   }, []);
 
+  // --- Fonction pour générer une interprétation à partir des données JSON ---
+  const generateInterpretationFromData = (data: any): string => {
+    try {
+      // Extraire les données du premier élément de pinData (données de test n8n)
+      const signalData = data.pinData?.['Get a row']?.[0] || data;
+      
+      const {
+        pair,
+        signal_metadata,
+        market_validation,
+        signals,
+        no_signal_analysis,
+        fundamental_context,
+        market_alerts
+      } = signalData;
+
+      let interpretation = `# 🤖 Analyse de Qubext pour ${pair}\n\n`;
+      
+      // Métadonnées
+      if (signal_metadata) {
+        interpretation += `**Session de marché:** ${signal_metadata.market_session}\n`;
+        interpretation += `**Fraîcheur des données:** ${signal_metadata.data_freshness}\n\n`;
+      }
+
+      // Score de confluence
+      if (market_validation) {
+        const score = market_validation.overall_confluence_score;
+        const threshold = market_validation.minimum_threshold;
+        
+        interpretation += `## 📊 Score de Confluence: ${score}/100\n`;
+        interpretation += `**Seuil minimum:** ${threshold}/100\n\n`;
+        
+        if (score >= threshold) {
+          interpretation += `✅ **Le score dépasse le seuil de sécurité!**\n\n`;
+        } else {
+          interpretation += `⚠️ **Le score est en dessous du seuil de sécurité de ${threshold}.**\n\n`;
+        }
+
+        // Détails du score
+        if (market_validation.score_breakdown) {
+          interpretation += `### Détails du Score:\n`;
+          interpretation += `- Price Action: ${market_validation.score_breakdown.price_action}/25\n`;
+          interpretation += `- SMC: ${market_validation.score_breakdown.smc}/25\n`;
+          interpretation += `- Indicateurs: ${market_validation.score_breakdown.indicators}/20\n`;
+          interpretation += `- Timing: ${market_validation.score_breakdown.timing}/15\n`;
+          interpretation += `- Contexte Marché: ${market_validation.score_breakdown.market_context}/15\n\n`;
+        }
+      }
+
+      // Signaux détectés ou absence de signal
+      if (signals && signals.length > 0) {
+        interpretation += `## 🎯 Signal Détecté!\n\n`;
+        signals.forEach((signal: any) => {
+          interpretation += `### ${signal.signal} - Confiance: ${signal.confidence}\n\n`;
+          
+          if (signal.entry_details) {
+            interpretation += `**Point d'Entrée:** ${signal.entry_details.entry_price}\n`;
+          }
+          
+          if (signal.risk_management) {
+            interpretation += `**Stop Loss:** ${signal.risk_management.stop_loss}\n`;
+            interpretation += `**Take Profit 1:** ${signal.risk_management.take_profit_1}\n`;
+            interpretation += `**Ratio R/R:** ${signal.risk_management.risk_reward_ratio}\n\n`;
+          }
+
+          if (signal.supporting_analysis?.fundamental_summary) {
+            interpretation += `${signal.supporting_analysis.fundamental_summary}\n\n`;
+          }
+        });
+      } else if (no_signal_analysis) {
+        interpretation += `## 🛡️ Aucun Signal Recommandé\n\n`;
+        interpretation += `**Ma priorité est de protéger ton capital.**\n\n`;
+        
+        if (no_signal_analysis.reasons_if_no_signal) {
+          interpretation += `### Pourquoi je reste prudent:\n\n`;
+          no_signal_analysis.reasons_if_no_signal.forEach((reason: string, index: number) => {
+            interpretation += `${index + 1}. ${reason}\n\n`;
+          });
+        }
+        
+        if (no_signal_analysis.next_evaluation) {
+          interpretation += `### 🔍 Prochaines Étapes:\n\n`;
+          interpretation += `${no_signal_analysis.next_evaluation}\n\n`;
+        }
+      }
+
+      // Contexte fondamental
+      if (fundamental_context) {
+        interpretation += `## 🌍 Contexte Fondamental\n\n`;
+        interpretation += `**Sentiment général:** ${fundamental_context.sentiment_general}\n`;
+        interpretation += `**Tendance dominante:** ${fundamental_context.tendance_dominante}\n\n`;
+        
+        if (fundamental_context.recommended_caution) {
+          interpretation += `⚠️ **Attention:** ${fundamental_context.recommended_caution}\n\n`;
+        }
+
+        if (fundamental_context.evenements_critiques_48h) {
+          interpretation += `### 📅 Événements à Surveiller (48h):\n\n`;
+          fundamental_context.evenements_critiques_48h.forEach((event: any) => {
+            const impactEmoji = event.impact === 'HIGH' ? '🔴' : event.impact === 'MEDIUM' ? '🟡' : '🟢';
+            interpretation += `${impactEmoji} **${event.event}** (${event.currency})\n`;
+            interpretation += `   ${new Date(event.datetime).toLocaleString('fr-FR')}\n`;
+            interpretation += `   _${event.implication_signal}_\n\n`;
+          });
+        }
+      }
+
+      // Niveaux techniques à surveiller
+      if (market_alerts?.technical_levels_to_watch) {
+        interpretation += `## 🎯 Niveaux Techniques à Surveiller\n\n`;
+        market_alerts.technical_levels_to_watch.forEach((level: string) => {
+          interpretation += `- ${level}\n`;
+        });
+        interpretation += `\n`;
+      }
+
+      interpretation += `---\n\n`;
+      interpretation += `💡 **Rappel:** Ne pas trader est parfois la meilleure décision. Je te tiendrai informé dès qu'une opportunité solide se présentera.\n`;
+
+      return interpretation;
+    } catch (error) {
+      console.error('Erreur lors de la génération de l\'interprétation:', error);
+      return 'Erreur lors de l\'interprétation des données du signal.';
+    }
+  };
+
   // --- Fonction pour streamer l'interprétation du signal après l'analyse ---
   const streamSignalInterpretation = useCallback(async (signalId: string) => {
     console.log(`🎯 Démarrage du streaming de l'interprétation pour signal_id: ${signalId}`);
@@ -322,7 +448,21 @@ export default function AnalyseScreen() {
       if (!response.body) {
         console.warn('⚠️ Le streaming n\'est pas supporté, tentative de lecture simple...');
         const text = await response.text();
-        setInterpretationText(text);
+        
+        // Tenter de parser le JSON pour extraire les données utiles
+        try {
+          const jsonData = JSON.parse(text);
+          console.log('📦 Données reçues:', jsonData);
+          
+          // Extraire les informations du signal pour générer une interprétation
+          const interpretedText = generateInterpretationFromData(jsonData);
+          setInterpretationText(interpretedText);
+        } catch (e) {
+          // Si ce n'est pas du JSON, afficher le texte brut
+          console.log('📝 Texte brut reçu (pas JSON)');
+          setInterpretationText(text);
+        }
+        
         setIsStreamingInterpretation(false);
         setInterpretationComplete(true);
         return;
